@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Scheduler - Gantt Chart</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .app-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 0;
+            height: calc(100vh - 180px);
+            position: relative;
+        }
+
+        .left-pane {
+            flex: 0 0 500px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px 0 0 16px;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .resize-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            cursor: col-resize;
+            z-index: 1000;
+            border-radius: 0 4px 4px 0;
+            transition: all 0.3s ease;
+            opacity: 0.7;
+        }
+
+        .resize-handle:hover {
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+            width: 12px;
+            opacity: 1;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .resize-handle::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 1px;
+        }
+
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 1px;
+            margin-left: -4px;
+        }
+
+        .resize-handle.resizing {
+            width: 12px;
+            opacity: 1;
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+            box-shadow: 0 0 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .right-pane {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 0 16px 16px 0;
+            padding: 20px;
+            overflow: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+
+        .add-task-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .add-task-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .tasks-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+		.tasks-table th {
+			background: #f7fafc;
+			padding: 12px 8px;
+			text-align: left;
+			font-weight: 600;
+			color: #4a5568;
+			border-bottom: 2px solid #e2e8f0;
+			font-size: 13px;
+			position: relative;
+		}
+
+        .tasks-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .task-input {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+
+        .task-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .predecessor-btn {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            transition: all 0.2s;
+            min-height: 28px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .predecessor-btn:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            min-width: 500px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            animation: modalAppear 0.2s ease-out forwards;
+        }
+
+        @keyframes modalAppear {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #a0aec0;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .predecessor-form {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .form-select, .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-select:focus, .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #edf2f7;
+        }
+
+        .predecessors-list {
+            margin-top: 20px;
+        }
+
+        .predecessor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .predecessor-info {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .predecessor-task {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .predecessor-details {
+            color: #718096;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .btn-remove {
+            background: #fed7d7;
+            color: #c53030;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn-remove:hover {
+            background: #feb2b2;
+        }
+
+        .gantt-container {
+            position: relative;
+            overflow: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: white;
+        }
+
+        .gantt-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .zoom-btn:hover {
+            background: #edf2f7;
+        }
+
+        .zoom-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .zoom-btn:disabled:hover {
+            background: #f7fafc;
+        }
+
+        .zoom-level-display {
+            background: #667eea;
+            color: white;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+            display: none;
+        }
+
+        .gantt-timeline {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .timeline-unit {
+            padding: 12px 8px;
+            text-align: center;
+            border-right: 1px solid #e2e8f0;
+            font-weight: 600;
+            font-size: 12px;
+            color: #4a5568;
+        }
+
+        .gantt-content {
+            position: relative;
+            min-height: 400px;
+        }
+
+        .gantt-row {
+            display: flex;
+            height: 40px;
+            border-bottom: 1px solid #f1f5f9;
+            align-items: center;
+            position: relative;
+        }
+
+        .gantt-row:hover {
+            background: #fafbfc;
+        }
+
+        .gantt-cell {
+            height: 40px;
+            border-right: 1px solid #f1f5f9;
+            position: relative;
+        }
+
+        .task-bar {
+            position: absolute;
+            height: 24px;
+            border-radius: 12px;
+            top: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 5;
+        }
+
+        .task-bar-0 { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .task-bar-1 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .task-bar-2 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .task-bar-3 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .task-bar-4 { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .task-bar-5 { background: linear-gradient(135deg, #a8edea, #fed6e3); }
+        .task-bar-6 { background: linear-gradient(135deg, #ff9a9e, #fecfef); }
+        .task-bar-7 { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+
+        .dependency-arrow {
+            position: absolute;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .arrow-line {
+            stroke: #667eea;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .delete-btn {
+            background: #fed7d7;
+            color: #c53030;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #feb2b2;
+        }
+
+        body.resizing {
+            cursor: col-resize !important;
+            user-select: none !important;
+        }
+
+        body.resizing * {
+            cursor: col-resize !important;
+            user-select: none !important;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .left-pane {
+                flex: none;
+                margin-bottom: 20px;
+                border-radius: 16px;
+            }
+
+            .right-pane {
+                border-radius: 16px;
+            }
+            
+            .resize-handle {
+                display: none;
+            }
+            
+            .tasks-table {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1>Project Scheduler</h1>
+            <p>Create and manage project timelines with interactive Gantt charts</p>
+        </div>
+
+        <div class="main-content">
+            <div class="left-pane">
+                <div class="resize-handle" id="resizeHandle"></div>
+                <h2 class="section-title">Tasks</h2>
+                <button class="add-task-btn" onclick="addTask()">+ Add Task</button>
+                
+                <table class="tasks-table" id="tasksTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%" data-column="name">Task Name</th>
+                            <th style="width: 20%" data-column="startDate">Start Date</th>
+                            <th style="width: 15%" data-column="duration">Duration</th>
+                            <th style="width: 25%" data-column="predecessors">Predecessors</th>
+                            <th style="width: 15%" data-column="actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasksBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="right-pane">
+                <div class="gantt-header">
+                    <h2 class="section-title">Gantt Chart</h2>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="zoomOut()" id="zoomOutBtn">
+                            <span>−</span> Zoom Out
+                        </button>
+                        <button class="zoom-btn" onclick="zoomIn()" id="zoomInBtn">
+                            <span>+</span> Zoom In
+                        </button>
+                        <button class="zoom-btn" onclick="fitToWidth()" id="fitBtn">
+                            Fit Width
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="gantt-container" id="ganttContainer">
+                    <div class="gantt-timeline" id="ganttTimeline"></div>
+                    <div class="gantt-content" id="ganttContent">
+                        <svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#667eea" />
+                                </marker>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Predecessor Modal -->
+    <div id="predecessorModal" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Manage Predecessors</h3>
+                <button class="modal-close" onclick="closePredecessorModal()">×</button>
+            </div>
+            
+            <div class="predecessor-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Predecessor Task</label>
+                        <select class="form-select" id="predecessorTaskSelect">
+                            <option value="">Select a task...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Relationship Type</label>
+                        <select class="form-select" id="relationshipTypeSelect">
+                            <option value="FS">Finish-Start</option>
+                            <option value="SS">Start-Start</option>
+                            <option value="FF">Finish-Finish</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Offset (days)</label>
+                        <input type="number" class="form-input" id="offsetInput" value="0" step="1">
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="addPredecessor()">Add Predecessor</button>
+            </div>
+            
+            <div class="predecessors-list">
+                <h4 style="margin-bottom: 12px; color: #4a5568;">Current Predecessors</h4>
+                <div id="predecessorsList"></div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="btn-secondary" onclick="closePredecessorModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let nextTaskId = 1;
+        let currentEditingTaskId = null;
+        let isResizing = false;
+        
+        // Zoom configuration
+        let currentZoomLevel = 100; // Percentage
+        let currentTimeUnit = 'week'; // 'day', 'week', or 'month'
+        const MIN_COLUMN_WIDTH = 60; // Minimum width before switching time units
+		const ZOOM_FACTOR = 1.25; // Each zoom step shows 25% more/less content
+
+        // Initialize with sample tasks
+        function initializeSampleTasks() {
+            const today = new Date();
+            const sampleTasks = [
+                {
+                    id: nextTaskId++,
+                    name: 'Project Planning',
+                    startDate: formatDate(today),
+                    duration: 5,
+                    predecessors: []
+                },
+                {
+                    id: nextTaskId++,
+                    name: 'Requirements Gathering',
+                    startDate: formatDate(addDays(today, 5)),
+                    duration: 7,
+                    predecessors: []
+                },
+                {
+                    id: nextTaskId++,
+                    name: 'Design Phase',
+                    startDate: formatDate(addDays(today, 12)),
+                    duration: 10,
+                    predecessors: []
+                }
+            ];
+            
+            tasks = sampleTasks;
+            // Add a dependency with offset
+            updatePredecessorDependency(2, 2, 'FS', 2); // Design depends on Requirements with 2-day lag
+            renderTasks();
+            renderGantt();
+        }
+
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function addDays(date, days) {
+            const result = new Date(date);
+            result.setDate(result.getDate() + days);
+            return result;
+        }
+
+        function parseDate(dateString) {
+            return new Date(dateString + 'T00:00:00');
+        }
+
+        function addTask() {
+            const today = new Date();
+            const newTask = {
+                id: nextTaskId++,
+                name: `Task ${tasks.length + 1}`,
+                startDate: formatDate(today),
+                duration: 5,
+                predecessors: []
+            };
+            
+            tasks.push(newTask);
+            renderTasks();
+            renderGantt();
+        }
+
+        function deleteTask(taskId) {
+            // Remove task
+            tasks = tasks.filter(task => task.id !== taskId);
+            
+            // Remove this task from other tasks' predecessors
+            tasks.forEach(task => {
+                task.predecessors = task.predecessors.filter(pred => pred.taskId !== taskId);
+            });
+            
+            renderTasks();
+            renderGantt();
+        }
+
+        function updateTask(taskId, field, value) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            const oldValue = task[field];
+            task[field] = field === 'duration' ? parseInt(value) || 1 : value;
+            
+            // Recalculate dependent tasks if start date or duration changed
+            if (field === 'startDate' || field === 'duration') {
+                recalculateDependentTasks();
+            }
+            
+            renderTasks();
+            renderGantt();
+        }
+
+        function updatePredecessorDependency(taskId, predecessorTaskId, type, offset = 0) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            // Remove existing predecessor for this task and predecessor combination
+            task.predecessors = task.predecessors.filter(pred => pred.taskId !== predecessorTaskId);
+            
+            // Add new predecessor if specified
+            if (predecessorTaskId && type) {
+                task.predecessors.push({ 
+                    taskId: predecessorTaskId, 
+                    type: type,
+                    offset: offset || 0
+                });
+            }
+            
+            recalculateDependentTasks();
+            renderTasks();
+            renderGantt();
+        }
+
+        function addPredecessorToTask(taskId, predecessorTaskId, type, offset = 0) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            // Check if predecessor already exists
+            const existingPred = task.predecessors.find(pred => pred.taskId === predecessorTaskId);
+            if (existingPred) return;
+            
+            task.predecessors.push({
+                taskId: predecessorTaskId,
+                type: type,
+                offset: offset || 0
+            });
+            
+            recalculateDependentTasks();
+        }
+
+        function removePredecessorFromTask(taskId, predecessorTaskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            task.predecessors = task.predecessors.filter(pred => pred.taskId !== predecessorTaskId);
+            recalculateDependentTasks();
+        }
+
+        function recalculateDependentTasks() {
+            // Sort tasks by dependencies (predecessors first)
+            const sortedTasks = [...tasks].sort((a, b) => {
+                if (a.predecessors.length === 0 && b.predecessors.length > 0) return -1;
+                if (a.predecessors.length > 0 && b.predecessors.length === 0) return 1;
+                return 0;
+            });
+            
+            sortedTasks.forEach(task => {
+                if (task.predecessors.length > 0) {
+                    let calculatedStartDate = null;
+                    
+                    task.predecessors.forEach(pred => {
+                        const predTask = tasks.find(t => t.id === pred.taskId);
+                        if (!predTask) return;
+                        
+                        let requiredDate;
+                        const predStartDate = parseDate(predTask.startDate);
+                        const predEndDate = addDays(predStartDate, predTask.duration);
+                        
+                        switch (pred.type) {
+                            case 'FS': // Finish-Start
+                                requiredDate = addDays(predEndDate, pred.offset || 0);
+                                break;
+                            case 'SS': // Start-Start
+                                requiredDate = addDays(predStartDate, pred.offset || 0);
+                                break;
+                            case 'FF': // Finish-Finish
+                                requiredDate = addDays(addDays(predEndDate, pred.offset || 0), -task.duration);
+                                break;
+                            default:
+                                requiredDate = addDays(predEndDate, pred.offset || 0);
+                        }
+                        
+                        if (!calculatedStartDate || requiredDate > calculatedStartDate) {
+                            calculatedStartDate = requiredDate;
+                        }
+                    });
+                    
+                    if (calculatedStartDate) {
+                        task.startDate = formatDate(calculatedStartDate);
+                    }
+                }
+            });
+        }
+
+        function renderTasks() {
+            const tbody = document.getElementById('tasksBody');
+            tbody.innerHTML = '';
+            
+            tasks.forEach((task, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="text" class="task-input" value="${task.name}" 
+                               onchange="updateTask(${task.id}, 'name', this.value)">
+                    </td>
+                    <td>
+                        <input type="date" class="task-input" value="${task.startDate}"
+                               onchange="updateTask(${task.id}, 'startDate', this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="task-input" value="${task.duration}" min="1"
+                               onchange="updateTask(${task.id}, 'duration', this.value)">
+                    </td>
+                    <td>
+                        <button class="predecessor-btn" onclick="showPredecessorModal(${task.id})">
+                            ${formatPredecessors(task.predecessors)}
+                        </button>
+                    </td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function formatPredecessors(predecessors) {
+            if (predecessors.length === 0) return 'None';
+            
+            return predecessors.map(pred => {
+                const predTask = tasks.find(t => t.id === pred.taskId);
+                const taskName = predTask ? predTask.name : 'Unknown';
+                const offset = pred.offset ? ` ${pred.offset > 0 ? '+' : ''}${pred.offset}d` : '';
+                return `${taskName} (${pred.type}${offset})`;
+            }).join(', ');
+        }
+
+        function showPredecessorModal(taskId) {
+            currentEditingTaskId = taskId;
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            // Populate predecessor task options
+            const select = document.getElementById('predecessorTaskSelect');
+            select.innerHTML = '<option value="">Select a task...</option>';
+            
+            tasks.filter(t => t.id !== taskId).forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = t.name;
+                select.appendChild(option);
+            });
+            
+            // Reset form
+            document.getElementById('relationshipTypeSelect').value = 'FS';
+            document.getElementById('offsetInput').value = '0';
+            
+            // Render current predecessors
+            renderPredecessorsList();
+            
+            // Show modal
+            document.getElementById('predecessorModal').style.display = 'flex';
+        }
+
+        function closePredecessorModal() {
+            document.getElementById('predecessorModal').style.display = 'none';
+            currentEditingTaskId = null;
+            renderTasks();
+            renderGantt();
+        }
+
+        function renderPredecessorsList() {
+            const list = document.getElementById('predecessorsList');
+            const task = tasks.find(t => t.id === currentEditingTaskId);
+            if (!task) return;
+            
+            if (task.predecessors.length === 0) {
+                list.innerHTML = '<p style="color: #718096; font-style: italic;">No predecessors set</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            task.predecessors.forEach(pred => {
+                const predTask = tasks.find(t => t.id === pred.taskId);
+                if (!predTask) return;
+                
+                const item = document.createElement('div');
+                item.className = 'predecessor-item';
+                
+                const typeNames = { 'FS': 'Finish-Start', 'SS': 'Start-Start', 'FF': 'Finish-Finish' };
+                const offsetText = pred.offset ? ` (${pred.offset > 0 ? '+' : ''}${pred.offset} days)` : '';
+                
+                item.innerHTML = `
+                    <div class="predecessor-info">
+                        <div class="predecessor-task">${predTask.name}</div>
+                        <div class="predecessor-details">${typeNames[pred.type]}${offsetText}</div>
+                    </div>
+                    <button class="btn-remove" onclick="removePredecessor(${pred.taskId})">Remove</button>
+                `;
+                
+                list.appendChild(item);
+            });
+        }
+
+        function addPredecessor() {
+            const taskId = parseInt(document.getElementById('predecessorTaskSelect').value);
+            const type = document.getElementById('relationshipTypeSelect').value;
+            const offset = parseInt(document.getElementById('offsetInput').value) || 0;
+            
+            if (!taskId) {
+                alert('Please select a predecessor task');
+                return;
+            }
+            
+            addPredecessorToTask(currentEditingTaskId, taskId, type, offset);
+            renderPredecessorsList();
+            
+            // Reset form
+            document.getElementById('predecessorTaskSelect').value = '';
+            document.getElementById('offsetInput').value = '0';
+        }
+
+        function removePredecessor(predecessorTaskId) {
+            removePredecessorFromTask(currentEditingTaskId, predecessorTaskId);
+            renderPredecessorsList();
+        }
+
+		// Zoom functions
+		function zoomIn() {
+			// Zoom in means showing less content (higher zoom level)
+			currentZoomLevel *= ZOOM_FACTOR;
+			renderGantt();
+		}
+
+		function zoomOut() {
+			// Zoom out means showing more content (lower zoom level)
+			currentZoomLevel = Math.max(1, currentZoomLevel / ZOOM_FACTOR);
+			renderGantt();
+		}
+
+		function fitToWidth() {
+			const ganttContainer = document.getElementById('ganttContainer');
+			const containerWidth = ganttContainer.clientWidth - 60; // Account for padding/scrollbar
+			
+			if (tasks.length === 0) return;
+			
+			// Calculate the total timeline span needed with minimal padding
+			const allDates = tasks.flatMap(task => {
+				const start = parseDate(task.startDate);
+				const end = addDays(start, task.duration);
+				return [start, end];
+			});
+			
+			const minDate = new Date(Math.min(...allDates));
+			const maxDate = new Date(Math.max(...allDates));
+			const startDate = addDays(minDate, -1); // Just 1 day before
+			const endDate = addDays(maxDate, 1); // Just 1 day after
+			
+			const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+			
+			// Try different time units to find the best fit
+			let bestZoom = 1;
+			let bestFit = false;
+			
+			// Try days first
+			const dayWidth = containerWidth / totalDays;
+			if (dayWidth >= MIN_COLUMN_WIDTH) {
+				bestZoom = (dayWidth / getBaseUnitWidth()) * 100;
+				bestFit = true;
+			}
+			
+			// If days don't fit well, try weeks
+			if (!bestFit) {
+				const totalWeeks = Math.ceil(totalDays / 7);
+				const weekWidth = containerWidth / totalWeeks;
+				if (weekWidth >= MIN_COLUMN_WIDTH) {
+					// For weeks, we need to account for the 7-day multiplier in the rendering
+					bestZoom = (weekWidth / (getBaseUnitWidth() * 7)) * 100;
+					bestFit = true;
+				}
+			}
+			
+			// If weeks don't fit, use months
+			if (!bestFit) {
+				const totalMonths = Math.ceil(totalDays / 30);
+				const monthWidth = containerWidth / totalMonths;
+				// For months, we need to account for the 30-day multiplier in the rendering
+				bestZoom = (monthWidth / (getBaseUnitWidth() * 30)) * 100;
+			}
+			
+			currentZoomLevel = Math.max(1, bestZoom);
+			renderGantt();
+		}
+
+        function updateZoomDisplay() {
+            // Update button states - no limits now
+            document.getElementById('zoomInBtn').disabled = false;
+            document.getElementById('zoomOutBtn').disabled = currentZoomLevel <= 1;
+        }
+
+        function getBaseUnitWidth() {
+            return 120; // Base width for calculations
+        }
+
+        function getActualUnitWidth() {
+            const baseWidth = getBaseUnitWidth();
+            const scaledWidth = (baseWidth * currentZoomLevel) / 100;
+            
+            // Determine appropriate time unit based on scaled width
+            if (scaledWidth >= MIN_COLUMN_WIDTH) {
+                currentTimeUnit = 'day';
+                return scaledWidth;
+            } else if (scaledWidth * 7 >= MIN_COLUMN_WIDTH) {
+                currentTimeUnit = 'week';
+                return scaledWidth * 7;
+            } else {
+                currentTimeUnit = 'month';
+                return scaledWidth * 30;
+            }
+        }
+
+		function getTimelineUnits() {
+			if (tasks.length === 0) return [];
+			
+			const allDates = tasks.flatMap(task => {
+				const start = parseDate(task.startDate);
+				const end = addDays(start, task.duration);
+				return [start, end];
+			});
+			
+			const minDate = new Date(Math.min(...allDates));
+			const maxDate = new Date(Math.max(...allDates));
+			
+			// Add minimal padding - just one unit before and after
+			let startDate, endDate;
+			
+			if (currentTimeUnit === 'day') {
+				startDate = addDays(minDate, -1);
+				endDate = addDays(maxDate, 1);
+			} else if (currentTimeUnit === 'week') {
+				startDate = addDays(minDate, -7);
+				endDate = addDays(maxDate, 7);
+			} else { // month
+				startDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, minDate.getDate());
+				endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, maxDate.getDate());
+			}
+			
+			const units = [];
+			const current = new Date(startDate);
+			const unitWidth = getActualUnitWidth();
+			
+			while (current <= endDate) {
+				let label, next;
+				
+				if (currentTimeUnit === 'day') {
+					label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+					next = addDays(current, 1);
+				} else if (currentTimeUnit === 'week') {
+					const weekStart = new Date(current);
+					weekStart.setDate(current.getDate() - current.getDay());
+					label = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+					next = addDays(current, 7);
+				} else { // month
+					label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+					next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+				}
+				
+				units.push({
+					date: new Date(current),
+					label: label,
+					width: unitWidth
+				});
+				
+				current.setTime(next.getTime());
+			}
+			
+			return units;
+		}
+
+        function renderGantt() {
+            const timeline = document.getElementById('ganttTimeline');
+            const content = document.getElementById('ganttContent');
+            
+            // Clear existing content
+            timeline.innerHTML = '';
+            content.innerHTML = '<svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#667eea" /></marker></defs></svg>';
+            
+            const units = getTimelineUnits();
+            if (units.length === 0) return;
+            
+            const unitWidth = getActualUnitWidth();
+            
+            // Render timeline header
+            units.forEach(unit => {
+                const unitElement = document.createElement('div');
+                unitElement.className = 'timeline-unit';
+                unitElement.style.width = unitWidth + 'px';
+                unitElement.style.minWidth = unitWidth + 'px';
+                unitElement.textContent = unit.label;
+                timeline.appendChild(unitElement);
+            });
+            
+            // Render task rows
+            tasks.forEach((task, index) => {
+                const row = document.createElement('div');
+                row.className = 'gantt-row';
+                row.style.height = '40px';
+                
+                // Create cells for timeline alignment
+                units.forEach(unit => {
+                    const cell = document.createElement('div');
+                    cell.className = 'gantt-cell';
+                    cell.style.width = unitWidth + 'px';
+                    cell.style.minWidth = unitWidth + 'px';
+                    row.appendChild(cell);
+                });
+                
+                // Calculate task bar position and width
+                const taskStart = parseDate(task.startDate);
+                const timelineStart = units[0].date;
+                
+                const daysFromStart = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
+                let startPosition = 0;
+                
+                if (currentTimeUnit === 'day') {
+                    startPosition = daysFromStart * unitWidth;
+                } else if (currentTimeUnit === 'week') {
+                    startPosition = (daysFromStart / 7) * unitWidth;
+                } else { // month
+                    const monthsFromStart = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+                                           (taskStart.getMonth() - timelineStart.getMonth()) +
+                                           (taskStart.getDate() - timelineStart.getDate()) / 30;
+                    startPosition = monthsFromStart * unitWidth;
+                }
+                
+                let barWidth = 0;
+                if (currentTimeUnit === 'day') {
+                    barWidth = task.duration * unitWidth;
+                } else if (currentTimeUnit === 'week') {
+                    barWidth = (task.duration / 7) * unitWidth;
+                } else { // month
+                    barWidth = (task.duration / 30) * unitWidth;
+                }
+                
+                // Create task bar
+                const taskBar = document.createElement('div');
+                taskBar.className = `task-bar task-bar-${index % 8}`;
+                taskBar.style.left = startPosition + 'px';
+                taskBar.style.width = Math.max(barWidth, 60) + 'px';
+                taskBar.textContent = task.name;
+                taskBar.title = `${task.name}\nStart: ${task.startDate}\nDuration: ${task.duration} days`;
+                
+                row.appendChild(taskBar);
+                content.appendChild(row);
+            });
+            
+            // Render dependency arrows
+            renderDependencyArrows();
+        }
+
+        function renderDependencyArrows() {
+            const svg = document.getElementById('dependencyArrows');
+            const existingArrows = svg.querySelectorAll('.arrow-line');
+            existingArrows.forEach(arrow => arrow.remove());
+            
+            const units = getTimelineUnits();
+            if (units.length === 0) return;
+            
+            const unitWidth = getActualUnitWidth();
+            const timelineStart = units[0].date;
+            const rowHeight = 40;
+            
+            tasks.forEach((task, taskIndex) => {
+                task.predecessors.forEach(pred => {
+                    const predTaskIndex = tasks.findIndex(t => t.id === pred.taskId);
+                    if (predTaskIndex === -1) return;
+                    
+                    const predTask = tasks[predTaskIndex];
+                    
+                    // Calculate positions
+                    const predStart = parseDate(predTask.startDate);
+                    const taskStart = parseDate(task.startDate);
+                    
+                    let predX, taskX;
+                    
+                    if (currentTimeUnit === 'day') {
+                        const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
+                        const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
+                        
+                        if (pred.type === 'FS') {
+                            predX = (predDays + predTask.duration) * unitWidth;
+                            taskX = taskDays * unitWidth;
+                        } else if (pred.type === 'SS') {
+                            predX = predDays * unitWidth;
+                            taskX = taskDays * unitWidth;
+                        } else { // FF
+                            predX = (predDays + predTask.duration) * unitWidth;
+                            taskX = (taskDays + task.duration) * unitWidth;
+                        }
+                    } else if (currentTimeUnit === 'week') {
+                        const predWeeks = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24 * 7));
+                        const taskWeeks = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24 * 7));
+                        
+                        if (pred.type === 'FS') {
+                            predX = (predWeeks + predTask.duration / 7) * unitWidth;
+                            taskX = taskWeeks * unitWidth;
+                        } else if (pred.type === 'SS') {
+                            predX = predWeeks * unitWidth;
+                            taskX = taskWeeks * unitWidth;
+                        } else { // FF
+                            predX = (predWeeks + predTask.duration / 7) * unitWidth;
+                            taskX = (taskWeeks + task.duration / 7) * unitWidth;
+                        }
+                    } else { // month
+                        const predMonths = (predStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+                                          (predStart.getMonth() - timelineStart.getMonth()) +
+                                          (predStart.getDate() - timelineStart.getDate()) / 30;
+                        const taskMonths = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+                                          (taskStart.getMonth() - timelineStart.getMonth()) +
+                                          (taskStart.getDate() - timelineStart.getDate()) / 30;
+                        
+                        if (pred.type === 'FS') {
+                            predX = (predMonths + predTask.duration / 30) * unitWidth;
+                            taskX = taskMonths * unitWidth;
+                        } else if (pred.type === 'SS') {
+                            predX = predMonths * unitWidth;
+                            taskX = taskMonths * unitWidth;
+                        } else { // FF
+                            predX = (predMonths + predTask.duration / 30) * unitWidth;
+                            taskX = (taskMonths + task.duration / 30) * unitWidth;
+                        }
+                    }
+                    
+                    const predY = predTaskIndex * rowHeight + rowHeight / 2;
+                    const taskY = taskIndex * rowHeight + rowHeight / 2;
+                    
+                    // Create arrow path
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.classList.add('arrow-line');
+                    
+                    let pathData;
+                    if (Math.abs(predY - taskY) < rowHeight / 2) {
+                        // Horizontal arrow
+                        pathData = `M ${predX} ${predY} L ${taskX - 10} ${taskY}`;
+                    } else {
+                        // L-shaped arrow
+                        const midX = predX + (taskX - predX) / 2;
+                        pathData = `M ${predX} ${predY} L ${midX} ${predY} L ${midX} ${taskY} L ${taskX - 10} ${taskY}`;
+                    }
+                    
+                    path.setAttribute('d', pathData);
+                    path.setAttribute('stroke', '#667eea');
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('marker-end', 'url(#arrowhead)');
+                    
+                    svg.appendChild(path);
+                });
+            });
+        }
+
+        // Initialize the app with enhanced resize functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSampleTasks();
+            updateZoomDisplay();
+            initializeResize();
+            initializeColumnResize();
+        });
+
+        // Enhanced resize functionality for panes
+        function initializeResize() {
+            const resizeHandle = document.getElementById('resizeHandle');
+            const leftPane = document.querySelector('.left-pane');
+            const mainContent = document.querySelector('.main-content');
+            
+            resizeHandle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isResizing = true;
+                
+                // Add visual feedback
+                resizeHandle.classList.add('resizing');
+                document.body.classList.add('resizing');
+                
+                const startX = e.clientX;
+                const startWidth = leftPane.offsetWidth;
+                
+                function handleMouseMove(e) {
+                    if (!isResizing) return;
+                    
+                    const currentX = e.clientX;
+                    const diff = currentX - startX;
+                    const newWidth = startWidth + diff;
+                    
+                    const containerWidth = mainContent.offsetWidth;
+                    const minLeftWidth = 250;
+                    const minRightWidth = 400;
+                    const maxLeftWidth = containerWidth - minRightWidth;
+                    
+                    if (newWidth >= minLeftWidth && newWidth <= maxLeftWidth) {
+                        leftPane.style.flexBasis = newWidth + 'px';
+                    }
+                }
+                
+                function handleMouseUp() {
+                    isResizing = false;
+                    resizeHandle.classList.remove('resizing');
+                    document.body.classList.remove('resizing');
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                    
+                    // Re-render Gantt chart after resize to potentially trigger fit
+                    setTimeout(renderGantt, 100);
+                }
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+            
+            // Touch support for mobile
+            resizeHandle.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const startX = touch.clientX;
+                const startWidth = leftPane.offsetWidth;
+                
+                function handleTouchMove(e) {
+                    const touch = e.touches[0];
+                    const currentX = touch.clientX;
+                    const diff = currentX - startX;
+                    const newWidth = startWidth + diff;
+                    
+                    const containerWidth = mainContent.offsetWidth;
+                    const minLeftWidth = 250;
+                    const minRightWidth = 400;
+                    const maxLeftWidth = containerWidth - minRightWidth;
+                    
+                    if (newWidth >= minLeftWidth && newWidth <= maxLeftWidth) {
+                        leftPane.style.flexBasis = newWidth + 'px';
+                    }
+                }
+                
+                function handleTouchEnd() {
+                    document.removeEventListener('touchmove', handleTouchMove);
+                    document.removeEventListener('touchend', handleTouchEnd);
+                }
+                
+                document.addEventListener('touchmove', handleTouchMove);
+                document.addEventListener('touchend', handleTouchEnd);
+            });
+        }
+
+		// Column resize functionality
+		function initializeColumnResize() {
+			const table = document.getElementById('tasksTable');
+			const headers = table.querySelectorAll('th');
+			
+			headers.forEach((header, index) => {
+				// Skip the last column (no resize handle needed)
+				if (index === headers.length - 1) return;
+				
+				// Create resize handle
+				const resizeHandle = document.createElement('div');
+				resizeHandle.style.cssText = `
+					position: absolute;
+					right: 0;
+					top: 0;
+					bottom: 0;
+					width: 8px;
+					cursor: col-resize;
+					background: transparent;
+					z-index: 10;
+				`;
+				
+				// Add hover effect
+				resizeHandle.addEventListener('mouseenter', () => {
+					resizeHandle.style.background = 'rgba(102, 126, 234, 0.2)';
+				});
+				
+				resizeHandle.addEventListener('mouseleave', () => {
+					resizeHandle.style.background = 'transparent';
+				});
+				
+				header.style.position = 'relative';
+				header.appendChild(resizeHandle);
+				
+				let isResizing = false;
+				let startX = 0;
+				let startWidthLeft = 0;
+				let startWidthRight = 0;
+				
+				resizeHandle.addEventListener('mousedown', function(e) {
+					e.preventDefault();
+					e.stopPropagation();
+					
+					isResizing = true;
+					startX = e.pageX;
+					
+					const currentHeader = headers[index];
+					const nextHeader = headers[index + 1];
+					
+					startWidthLeft = currentHeader.offsetWidth;
+					startWidthRight = nextHeader.offsetWidth;
+					
+					document.body.style.cursor = 'col-resize';
+					document.body.style.userSelect = 'none';
+					
+					// Add global mouse listeners
+					document.addEventListener('mousemove', handleMouseMove);
+					document.addEventListener('mouseup', handleMouseUp);
+				});
+				
+				function handleMouseMove(e) {
+					if (!isResizing) return;
+					
+					const deltaX = e.pageX - startX;
+					const minWidth = 80;
+					
+					const newLeftWidth = startWidthLeft + deltaX;
+					const newRightWidth = startWidthRight - deltaX;
+					
+					// Ensure both columns maintain minimum width
+					if (newLeftWidth >= minWidth && newRightWidth >= minWidth) {
+						const currentHeader = headers[index];
+						const nextHeader = headers[index + 1];
+						
+						// Update header widths
+						currentHeader.style.width = newLeftWidth + 'px';
+						nextHeader.style.width = newRightWidth + 'px';
+						
+						// Update all corresponding cells in the tbody
+						const rows = table.querySelectorAll('tbody tr');
+						rows.forEach(row => {
+							if (row.children[index]) {
+								row.children[index].style.width = newLeftWidth + 'px';
+							}
+							if (row.children[index + 1]) {
+								row.children[index + 1].style.width = newRightWidth + 'px';
+							}
+						});
+					}
+				}
+				
+				function handleMouseUp() {
+					isResizing = false;
+					document.body.style.cursor = '';
+					document.body.style.userSelect = '';
+					
+					// Remove global listeners
+					document.removeEventListener('mousemove', handleMouseMove);
+					document.removeEventListener('mouseup', handleMouseUp);
+				}
+			});
+		}
+    </script>
+</body>
+</html>
