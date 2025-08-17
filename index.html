@@ -903,6 +903,19 @@
             }
         }
 
+		// Handle save/share button click - unified function
+        async function handleSaveShareClick() {
+            const btn = document.getElementById('saveShareBtn');
+            
+            if (btn.classList.contains('copy-mode')) {
+                // Button is in copy mode, copy the link
+                await copyLinkToClipboard();
+            } else {
+                // Button is in save mode, save the chart
+                await saveGanttChart();
+            }
+        }
+		
 		// Transform button to copy link mode
         function transformButtonToCopyMode() {
             const btn = document.getElementById('saveShareBtn');
