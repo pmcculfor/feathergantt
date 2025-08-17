@@ -14,6 +14,13 @@
             box-sizing: border-box;
         }
 
+		:root {
+		    --gantt-row-height: 40px;
+		    --gantt-bar-height: 24px;
+		    --gantt-bar-top: 8px;
+		    --min-bar-width: 60px;
+		}
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -569,7 +576,7 @@
 
         .gantt-row {
             display: flex;
-            height: 40px;
+            height: var(--gantt-row-height);
             border-bottom: 1px solid #f1f5f9;
             align-items: center;
             position: relative;
@@ -587,9 +594,9 @@
 
         .task-bar {
             position: absolute;
-            height: 24px;
+            height: var(--gantt-bar-height);
+    		top: var(--gantt-bar-top);
             border-radius: 12px;
-            top: 8px;
             display: flex;
             align-items: center;
             padding: 0 12px;
@@ -1413,174 +1420,202 @@
             return 120; // Base width for calculations
         }
 
-        function getActualUnitWidth() {
-            const baseWidth = getBaseUnitWidth();
-            const scaledWidth = (baseWidth * currentZoomLevel) / 100;
-            
-            // Determine appropriate time unit based on scaled width
-            if (scaledWidth >= MIN_COLUMN_WIDTH) {
-                currentTimeUnit = 'day';
-                return scaledWidth;
-            } else if (scaledWidth * 7 >= MIN_COLUMN_WIDTH) {
-                currentTimeUnit = 'week';
-                return scaledWidth * 7;
-            } else {
-                currentTimeUnit = 'month';
-                return scaledWidth * 30;
-            }
-        }
-
-		function getTimelineUnits() {
-			if (tasks.length === 0) return [];
-			
-			const allDates = tasks.flatMap(task => {
-				const start = parseDate(task.startDate);
-				const end = addDays(start, task.duration);
-				return [start, end];
-			});
-			
-			const minDate = new Date(Math.min(...allDates));
-			const maxDate = new Date(Math.max(...allDates));
-			
-			// Add minimal padding - just one unit before and after
-			let startDate, endDate;
-			
-			if (currentTimeUnit === 'day') {
-				startDate = addDays(minDate, -1);
-				endDate = addDays(maxDate, 1);
-			} else if (currentTimeUnit === 'week') {
-				startDate = addDays(minDate, -7);
-				endDate = addDays(maxDate, 7);
-			} else { // month
-				startDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, minDate.getDate());
-				endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, maxDate.getDate());
-			}
-			
-			const units = [];
-			const current = new Date(startDate);
-			const unitWidth = getActualUnitWidth();
-			
-			while (current <= endDate) {
-				let label, next;
-				
-				if (currentTimeUnit === 'day') {
-					label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-					next = addDays(current, 1);
-				} else if (currentTimeUnit === 'week') {
-					const weekStart = new Date(current);
-					weekStart.setDate(current.getDate() - current.getDay());
-					label = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-					next = addDays(current, 7);
-				} else { // month
-					label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-					next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-				}
-				
-				units.push({
-					date: new Date(current),
-					label: label,
-					width: unitWidth
-				});
-				
-				current.setTime(next.getTime());
-			}
-			
-			return units;
+        // Enhanced getActualUnitWidth that returns consistent state
+		function getGanttRenderingConfig() {
+		    const baseWidth = getBaseUnitWidth();
+		    const scaledWidth = (baseWidth * currentZoomLevel) / 100;
+		    
+		    let timeUnit, unitWidth;
+		    
+		    // Determine appropriate time unit based on scaled width
+		    if (scaledWidth >= MIN_COLUMN_WIDTH) {
+		        timeUnit = 'day';
+		        unitWidth = scaledWidth;
+		    } else if (scaledWidth * 7 >= MIN_COLUMN_WIDTH) {
+		        timeUnit = 'week';
+		        unitWidth = scaledWidth * 7;
+		    } else {
+		        timeUnit = 'month';
+		        unitWidth = scaledWidth * 30;
+		    }
+		    
+		    return { timeUnit, unitWidth };
 		}
-
-        function renderGantt() {
-            const timeline = document.getElementById('ganttTimeline');
-            const content = document.getElementById('ganttContent');
-            
-            // Clear existing content
-            timeline.innerHTML = '';
-            content.innerHTML = '<svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#667eea" /></marker></defs></svg>';
-            
-            const units = getTimelineUnits();
-            if (units.length === 0) return;
-            
-            const unitWidth = getActualUnitWidth();
-            
-            // Render timeline header
-            units.forEach(unit => {
-                const unitElement = document.createElement('div');
-                unitElement.className = 'timeline-unit';
-                unitElement.style.width = unitWidth + 'px';
-                unitElement.style.minWidth = unitWidth + 'px';
-                unitElement.textContent = unit.label;
-                timeline.appendChild(unitElement);
-            });
-            
-            // Render task rows
-            tasks.forEach((task, index) => {
-                const row = document.createElement('div');
-                row.className = 'gantt-row';
-                row.style.height = '40px';
-                
-                // Create cells for timeline alignment
-                units.forEach(unit => {
-                    const cell = document.createElement('div');
-                    cell.className = 'gantt-cell';
-                    cell.style.width = unitWidth + 'px';
-                    cell.style.minWidth = unitWidth + 'px';
-                    row.appendChild(cell);
-                });
-                
-                // Calculate task bar position and width
-                const taskStart = parseDate(task.startDate);
-                const timelineStart = units[0].date;
-                
-                const daysFromStart = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
-                let startPosition = 0;
-                
-                if (currentTimeUnit === 'day') {
-                    startPosition = daysFromStart * unitWidth;
-                } else if (currentTimeUnit === 'week') {
-                    startPosition = (daysFromStart / 7) * unitWidth;
-                } else { // month
-                    const monthsFromStart = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-                                           (taskStart.getMonth() - timelineStart.getMonth()) +
-                                           (taskStart.getDate() - timelineStart.getDate()) / 30;
-                    startPosition = monthsFromStart * unitWidth;
-                }
-                
-                let barWidth = 0;
-                if (currentTimeUnit === 'day') {
-                    barWidth = task.duration * unitWidth;
-                } else if (currentTimeUnit === 'week') {
-                    barWidth = (task.duration / 7) * unitWidth;
-                } else { // month
-                    barWidth = (task.duration / 30) * unitWidth;
-                }
-                
-                // Create task bar
-                const taskBar = document.createElement('div');
-                taskBar.className = `task-bar task-bar-${index % 8}`;
-                taskBar.style.left = startPosition + 'px';
-                taskBar.style.width = Math.max(barWidth, 60) + 'px';
-                taskBar.textContent = task.name;
-                taskBar.title = `${task.name}\nStart: ${task.startDate}\nDuration: ${task.duration} days`;
-                
-                row.appendChild(taskBar);
-                content.appendChild(row);
-            });
-            
-            // Render dependency arrows
-            renderDependencyArrows(unitWidth);
-        }
-
-        function renderDependencyArrows(unitWidth) {
+		
+		function getTimelineUnits(renderConfig) {
+		    if (tasks.length === 0) return [];
+		    
+		    const { timeUnit, unitWidth } = renderConfig;
+		    
+		    const allDates = tasks.flatMap(task => {
+		        const start = parseDate(task.startDate);
+		        const end = addDays(start, task.duration);
+		        return [start, end];
+		    });
+		    
+		    const minDate = new Date(Math.min(...allDates));
+		    const maxDate = new Date(Math.max(...allDates));
+		    
+		    // Add minimal padding - just one unit before and after
+		    let startDate, endDate;
+		    
+		    if (timeUnit === 'day') {
+		        startDate = addDays(minDate, -1);
+		        endDate = addDays(maxDate, 1);
+		    } else if (timeUnit === 'week') {
+		        startDate = addDays(minDate, -7);
+		        endDate = addDays(maxDate, 7);
+		    } else { // month
+		        startDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, minDate.getDate());
+		        endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, maxDate.getDate());
+		    }
+		    
+		    const units = [];
+		    const current = new Date(startDate);
+		    
+		    while (current <= endDate) {
+		        let label, next;
+		        
+		        if (timeUnit === 'day') {
+		            label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		            next = addDays(current, 1);
+		        } else if (timeUnit === 'week') {
+		            const weekStart = new Date(current);
+		            weekStart.setDate(current.getDate() - current.getDay());
+		            label = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+		            next = addDays(current, 7);
+		        } else { // month
+		            label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+		            next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+		        }
+		        
+		        units.push({
+		            date: new Date(current),
+		            label: label,
+		            width: unitWidth
+		        });
+		        
+		        current.setTime(next.getTime());
+		    }
+		    
+		    return units;
+		}
+		
+		// Centralized function to calculate task positions
+		function calculateTaskPosition(task, timelineStart, renderConfig) {
+		    const { timeUnit, unitWidth } = renderConfig;
+		    const taskStart = parseDate(task.startDate);
+		    const daysFromStart = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
+		    
+		    let startPosition, barWidth;
+		    
+		    if (timeUnit === 'day') {
+		        startPosition = daysFromStart * unitWidth;
+		        barWidth = task.duration * unitWidth;
+		    } else if (timeUnit === 'week') {
+		        startPosition = (daysFromStart / 7) * unitWidth;
+		        barWidth = (task.duration / 7) * unitWidth;
+		    } else { // month
+		        // More accurate month calculation
+		        const monthsFromStart = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+		                               (taskStart.getMonth() - timelineStart.getMonth()) +
+		                               (taskStart.getDate() - timelineStart.getDate()) / 30;
+		        startPosition = monthsFromStart * unitWidth;
+		        barWidth = (task.duration / 30) * unitWidth;
+		    }
+		    
+		    // Ensure minimum bar width
+		    const minBarWidth = getConfigValue('--min-width', 60);;
+		    barWidth = Math.max(barWidth, minBarWidth);
+		    
+		    return {
+		        startX: startPosition,
+		        endX: startPosition + barWidth,
+		        width: barWidth
+		    };
+		}
+		
+		function renderGantt() {
+		    const timeline = document.getElementById('ganttTimeline');
+		    const content = document.getElementById('ganttContent');
+		    
+		    // Clear existing content
+		    timeline.innerHTML = '';
+		    content.innerHTML = '<svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#667eea" /></marker></defs></svg>';
+		    
+		    // Get consistent rendering configuration
+		    const renderConfig = getGanttRenderingConfig();
+		    currentTimeUnit = renderConfig.timeUnit; // Update global state
+		    
+		    const units = getTimelineUnits(renderConfig);
+		    if (units.length === 0) return;
+		    
+		    const { unitWidth } = renderConfig;
+		    const timelineStart = units[0].date;
+		    
+		    // Render timeline header
+		    units.forEach(unit => {
+		        const unitElement = document.createElement('div');
+		        unitElement.className = 'timeline-unit';
+		        unitElement.style.width = unitWidth + 'px';
+		        unitElement.style.minWidth = unitWidth + 'px';
+		        unitElement.textContent = unit.label;
+		        timeline.appendChild(unitElement);
+		    });
+		    
+		    // Render task rows
+		    tasks.forEach((task, index) => {
+		        const row = document.createElement('div');
+		        row.className = 'gantt-row';
+		        row.style.height = '40px';
+		        
+		        // Create cells for timeline alignment
+		        units.forEach(unit => {
+		            const cell = document.createElement('div');
+		            cell.className = 'gantt-cell';
+		            cell.style.width = unitWidth + 'px';
+		            cell.style.minWidth = unitWidth + 'px';
+		            row.appendChild(cell);
+		        });
+		        
+		        // Calculate task bar position using centralized function
+		        const taskPosition = calculateTaskPosition(task, timelineStart, renderConfig);
+		        
+		        // Create task bar
+		        const taskBar = document.createElement('div');
+		        taskBar.className = `task-bar task-bar-${index % 8}`;
+		        taskBar.style.left = taskPosition.startX + 'px';
+		        taskBar.style.width = taskPosition.width + 'px';
+		        taskBar.textContent = task.name;
+		        taskBar.title = `${task.name}\nStart: ${task.startDate}\nDuration: ${task.duration} days`;
+		        
+		        row.appendChild(taskBar);
+		        content.appendChild(row);
+		    });
+		    
+		    // Render dependency arrows with the same render config
+		    renderDependencyArrows(renderConfig, timelineStart);
+		}
+		
+		function renderDependencyArrows(renderConfig, timelineStart) {
 		    const svg = document.getElementById('dependencyArrows');
 		    const existingArrows = svg.querySelectorAll('.dependency-line');
 		    existingArrows.forEach(arrow => arrow.remove());
 		    
-		    const units = getTimelineUnits();
-		    if (units.length === 0) return;
+		    if (tasks.length === 0) return;
 		    
-		    const timelineStart = units[0].date;
-		    const rowHeight = GANTT_CONFIG.ROW_HEIGHT;
-		    const barHeight = GANTT_CONFIG.TASK_BAR_HEIGHT; // Height of task bars
-		    const barTop = (rowHeight - barHeight) / 2; // Top offset of bars within rows
+		    // Use CSS custom properties if available, otherwise fallback to constants
+		    const getConfigValue = (cssVar, fallback) => {
+		        if (typeof getComputedStyle !== 'undefined') {
+		            const value = getComputedStyle(document.documentElement).getPropertyValue(cssVar);
+		            return value ? parseInt(value) : fallback;
+		        }
+		        return fallback;
+		    };
+		    
+		    const rowHeight = getConfigValue('--gantt-row-height', 40);
+		    const minBarWidth = getConfigValue('--min-bar-width', 60);
+		    const lineRoutingOffset = rowHeight * 0.2; // 20% of row height for cleaner routing
 		    
 		    tasks.forEach((task, taskIndex) => {
 		        task.predecessors.forEach(pred => {
@@ -1589,57 +1624,9 @@
 		            
 		            const predTask = tasks[predTaskIndex];
 		            
-		            // Calculate task bar positions and widths
-		            const predStart = parseDate(predTask.startDate);
-		            const taskStart = parseDate(task.startDate);
-		            
-		            let predStartX, predEndX, taskStartX, taskEndX;
-		            
-		            // Calculate X positions based on time unit
-		            if (currentTimeUnit === 'day') {
-		                const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
-		                const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
-		                
-		                predStartX = predDays * unitWidth;
-		                predEndX = (predDays + predTask.duration) * unitWidth;
-		                taskStartX = taskDays * unitWidth;
-		                taskEndX = (taskDays + task.duration) * unitWidth;
-		            } else if (currentTimeUnit === 'week') {
-		                const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
-		                const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
-		                
-		                predStartX = (predDays / 7) * unitWidth;
-		                taskStartX = (taskDays / 7) * unitWidth;
-						// Calculate end positions by adding the bar width (same as renderGantt does)
-						const predBarWidth = (predTask.duration / 7) * unitWidth;
-						const taskBarWidth = (task.duration / 7) * unitWidth;
-						predEndX = predStartX + predBarWidth;
-						taskEndX = taskStartX + taskBarWidth;
-		            } else { // month
-		                const predMonths = (predStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-		                                  (predStart.getMonth() - timelineStart.getMonth()) +
-		                                  (predStart.getDate() - timelineStart.getDate()) / 30;
-		                const taskMonths = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-		                                  (taskStart.getMonth() - timelineStart.getMonth()) +
-		                                  (taskStart.getDate() - timelineStart.getDate()) / 30;
-		                
-		                predStartX = predMonths * unitWidth;
-		                taskStartX = taskMonths * unitWidth;
-						// Calculate end positions by adding the bar width (same as renderGantt does)
-						const predBarWidth = (predTask.duration / 30) * unitWidth;
-						const taskBarWidth = (task.duration / 30) * unitWidth;
-						predEndX = predStartX + predBarWidth;
-						taskEndX = taskStartX + taskBarWidth;
-		            }
-		            
-		            // Ensure minimum bar width for display
-		            const minBarWidth = GANTT_CONFIG.MIN_BAR_WIDTH;
-		            if (predEndX - predStartX < minBarWidth) {
-		                predEndX = predStartX + minBarWidth;
-		            }
-		            if (taskEndX - taskStartX < minBarWidth) {
-		                taskEndX = taskStartX + minBarWidth;
-		            }
+		            // Use the same position calculation for both tasks
+		            const predPosition = calculateTaskPosition(predTask, timelineStart, renderConfig);
+		            const taskPosition = calculateTaskPosition(task, timelineStart, renderConfig);
 		            
 		            // Calculate Y positions (center of task bars)
 		            const predY = predTaskIndex * rowHeight + rowHeight / 2;
@@ -1650,20 +1637,20 @@
 		            
 		            switch (pred.type) {
 		                case 'FS': // Finish-Start
-		                    startX = predStartX + (predEndX - predStartX) * 0.9; // 90% to the right of predecessor
-		                    endX = taskStartX + (taskEndX - taskStartX) * 0.1; // 10% from left of dependent
+		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.9;
+		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.1;
 		                    break;
 		                case 'SS': // Start-Start
-		                    startX = predStartX + (predEndX - predStartX) * 0.1; // 10% from left of predecessor
-		                    endX = taskStartX + (taskEndX - taskStartX) * 0.1; // 10% from left of dependent
+		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.1;
+		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.1;
 		                    break;
 		                case 'FF': // Finish-Finish
-		                    startX = predStartX + (predEndX - predStartX) * 0.9; // 90% to the right of predecessor
-		                    endX = taskStartX + (taskEndX - taskStartX) * 0.9; // 90% to the right of dependent
+		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.9;
+		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.9;
 		                    break;
 		                default:
-		                    startX = predEndX; // Default to finish-start
-		                    endX = taskStartX;
+		                    startX = predPosition.endX;
+		                    endX = taskPosition.startX;
 		            }
 		            
 		            // Create the dependency line path
@@ -1675,15 +1662,13 @@
 		            }
 		            
 		            // Determine intermediate points for L-shaped routing
-		            const verticalOffset = rowHeight / 2; // Distance from task bar for vertical routing
-		            
 		            if (predTaskIndex < taskIndex) {
 		                // Predecessor is above dependent
-		                const intermediateY = predY + verticalOffset;
+		                const intermediateY = predY + lineRoutingOffset;
 		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
 		            } else {
 		                // Predecessor is below dependent
-		                const intermediateY = predY - verticalOffset;
+		                const intermediateY = predY - lineRoutingOffset;
 		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
 		            }
 		            
@@ -1695,8 +1680,6 @@
 		            path.setAttribute('stroke-width', '2');
 		            path.setAttribute('fill', 'none');
 		            path.setAttribute('opacity', '0.8');
-		            
-		            // Add subtle styling
 		            path.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))';
 		            
 		            svg.appendChild(path);
