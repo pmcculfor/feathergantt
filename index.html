@@ -1566,10 +1566,10 @@
             });
             
             // Render dependency arrows
-            renderDependencyArrows();
+            renderDependencyArrows(unitWidth);
         }
 
-        function renderDependencyArrows() {
+        function renderDependencyArrows(unitWidth) {
 		    const svg = document.getElementById('dependencyArrows');
 		    const existingArrows = svg.querySelectorAll('.dependency-line');
 		    existingArrows.forEach(arrow => arrow.remove());
@@ -1577,7 +1577,6 @@
 		    const units = getTimelineUnits();
 		    if (units.length === 0) return;
 		    
-		    const unitWidth = getActualUnitWidth();
 		    const timelineStart = units[0].date;
 		    const rowHeight = GANTT_CONFIG.ROW_HEIGHT;
 		    const barHeight = GANTT_CONFIG.TASK_BAR_HEIGHT; // Height of task bars
