@@ -849,8 +849,6 @@
                     const newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + currentGanttId;
                     window.history.pushState({path: newUrl}, '', newUrl);
                     
-                    // Show shareable URL
-                    showShareableUrl(newUrl);
                 }
 
                 updateSaveStatus('saved', 'Saved ✓');
@@ -886,9 +884,6 @@
                     
                     renderTasks();
                     renderGantt();
-                    
-                    // Show current URL as shareable
-                    showShareableUrl(window.location.href);
                     
                     // Update button text
                     document.getElementById('saveShareBtn').innerHTML = '<span>💾</span> Save';
