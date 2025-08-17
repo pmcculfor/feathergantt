@@ -1564,6 +1564,16 @@
 		        unitElement.textContent = unit.label;
 		        timeline.appendChild(unitElement);
 		    });
+
+			// Set explicit width on timeline and content to ensure they stay synchronized
+			const totalTimelineWidth = units.reduce((sum, unit) => sum + unitWidth, 0);
+			timeline.style.width = totalTimelineWidth + 'px';
+			timeline.style.minWidth = totalTimelineWidth + 'px';
+			
+			// Ensure the content container matches the timeline width
+			const ganttContent = document.getElementById('ganttContent');
+			ganttContent.style.width = totalTimelineWidth + 'px';
+			ganttContent.style.minWidth = totalTimelineWidth + 'px';
 		    
 		    // Render task rows
 		    tasks.forEach((task, index) => {
