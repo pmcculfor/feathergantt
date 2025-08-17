@@ -1615,7 +1615,7 @@
 		    
 		    const rowHeight = getConfigValue('--gantt-row-height', 40);
 		    const minBarWidth = getConfigValue('--min-bar-width', 60);
-		    const lineRoutingOffset = rowHeight * 0.2; // 20% of row height for cleaner routing
+		    const lineRoutingOffset = rowHeight / 2; // Line comes from middle of row
 		    
 		    tasks.forEach((task, taskIndex) => {
 		        task.predecessors.forEach(pred => {
