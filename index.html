@@ -1525,7 +1525,7 @@
 		    }
 		    
 		    // Ensure minimum bar width
-		    const minBarWidth = getConfigValue('--min-width', 60);;
+		    const minBarWidth = getConfigValue('--min-width', 60);
 		    barWidth = Math.max(barWidth, minBarWidth);
 		    
 		    return {
@@ -1596,6 +1596,15 @@
 		    // Render dependency arrows with the same render config
 		    renderDependencyArrows(renderConfig, timelineStart);
 		}
+
+		// Use CSS custom properties if available, otherwise fallback to constants
+		function getConfigValue(cssVar, fallback) {
+			if (typeof getComputedStyle !== 'undefined') {
+				const value = getComputedStyle(document.documentElement).getPropertyValue(cssVar);
+				return value ? parseInt(value) : fallback;
+			}
+			return fallback;
+		};
 		
 		function renderDependencyArrows(renderConfig, timelineStart) {
 		    const svg = document.getElementById('dependencyArrows');
@@ -1603,15 +1612,6 @@
 		    existingArrows.forEach(arrow => arrow.remove());
 		    
 		    if (tasks.length === 0) return;
-		    
-		    // Use CSS custom properties if available, otherwise fallback to constants
-		    const getConfigValue = (cssVar, fallback) => {
-		        if (typeof getComputedStyle !== 'undefined') {
-		            const value = getComputedStyle(document.documentElement).getPropertyValue(cssVar);
-		            return value ? parseInt(value) : fallback;
-		        }
-		        return fallback;
-		    };
 		    
 		    const rowHeight = getConfigValue('--gantt-row-height', 40);
 		    const minBarWidth = getConfigValue('--min-bar-width', 60);
