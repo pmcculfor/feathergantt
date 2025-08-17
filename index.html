@@ -1609,9 +1609,12 @@
 		                const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
 		                
 		                predStartX = (predDays / 7) * unitWidth;
-		                predEndX = ((predDays + predTask.duration) / 7) * unitWidth;
 		                taskStartX = (taskDays / 7) * unitWidth;
-		                taskEndX = ((taskDays + task.duration) / 7) * unitWidth;
+						// Calculate end positions by adding the bar width (same as renderGantt does)
+						const predBarWidth = (predTask.duration / 7) * unitWidth;
+						const taskBarWidth = (task.duration / 7) * unitWidth;
+						predEndX = predStartX + predBarWidth;
+						taskEndX = taskStartX + taskBarWidth;
 		            } else { // month
 		                const predMonths = (predStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
 		                                  (predStart.getMonth() - timelineStart.getMonth()) +
@@ -1621,9 +1624,12 @@
 		                                  (taskStart.getDate() - timelineStart.getDate()) / 30;
 		                
 		                predStartX = predMonths * unitWidth;
-		                predEndX = (predMonths + predTask.duration / 30) * unitWidth;
 		                taskStartX = taskMonths * unitWidth;
-		                taskEndX = (taskMonths + task.duration / 30) * unitWidth;
+						// Calculate end positions by adding the bar width (same as renderGantt does)
+						const predBarWidth = (predTask.duration / 30) * unitWidth;
+						const taskBarWidth = (task.duration / 30) * unitWidth;
+						predEndX = predStartX + predBarWidth;
+						taskEndX = taskStartX + taskBarWidth;
 		            }
 		            
 		            // Ensure minimum bar width for display
