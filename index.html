@@ -1689,180 +1689,198 @@
 		    });
 		}
 
-        // Initialize the app with enhanced resize functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            checkUrlParams(); // Load from URL or initialize sample tasks
-            updateZoomDisplay();
-            initializeResize();
-            initializeColumnResize();
-        });
-
-        // Enhanced resize functionality for panes
-        function initializeResize() {
-            const resizeHandle = document.getElementById('resizeHandle');
-            const leftPane = document.querySelector('.left-pane');
-            const mainContent = document.querySelector('.main-content');
-            
-            resizeHandle.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                isResizing = true;
-                
-                // Add visual feedback
-                resizeHandle.classList.add('resizing');
-                document.body.classList.add('resizing');
-                
-                const startX = e.clientX;
-                const startWidth = leftPane.offsetWidth;
-                
-                function handleMouseUp() {
-                    isResizing = false;
-                    resizeHandle.classList.remove('resizing');
-                    document.body.classList.remove('resizing');
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
-                    
-                    // Re-render Gantt chart after resize to potentially trigger fit
-                    setTimeout(renderGantt, 100);
-                }
-                
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
-            });
-            
-            // Touch support for mobile
-            resizeHandle.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const startX = touch.clientX;
-                const startWidth = leftPane.offsetWidth;
-                
-                function handleTouchMove(e) {
-                    const touch = e.touches[0];
-                    const currentX = touch.clientX;
-                    const diff = currentX - startX;
-                    const newWidth = startWidth + diff;
-                    
-                    const containerWidth = mainContent.offsetWidth;
-                    const minLeftWidth = 250;
-                    const minRightWidth = 400;
-                    const maxLeftWidth = containerWidth - minRightWidth;
-                    
-                    if (newWidth >= minLeftWidth && newWidth <= maxLeftWidth) {
-                        leftPane.style.flexBasis = newWidth + 'px';
-                    }
-                }
-                
-                function handleTouchEnd() {
-                    document.removeEventListener('touchmove', handleTouchMove);
-                    document.removeEventListener('touchend', handleTouchEnd);
-                }
-                
-                document.addEventListener('touchmove', handleTouchMove);
-                document.addEventListener('touchend', handleTouchEnd);
-            });
-        }
-
+		// Initialize the app with enhanced resize functionality
+		document.addEventListener('DOMContentLoaded', function () {
+		    checkUrlParams(); // Load from URL or initialize sample tasks
+		    updateZoomDisplay();
+		    initializeResize();
+		    initializeColumnResize();
+		});
+		
+		// Enhanced resize functionality for panes
+		function initializeResize() {
+		    const resizeHandle = document.getElementById('resizeHandle');
+		    const leftPane = document.querySelector('.left-pane');
+		    const mainContent = document.querySelector('.main-content');
+		    
+		    let isResizing = false; // Define isResizing at function scope
+		    
+		    resizeHandle.addEventListener('mousedown', function (e) {
+		        e.preventDefault();
+		        isResizing = true;
+		        
+		        // Add visual feedback
+		        resizeHandle.classList.add('resizing');
+		        document.body.classList.add('resizing');
+		        
+		        const startX = e.clientX;
+		        const startWidth = leftPane.offsetWidth;
+		        
+		        function handlePaneMouseMove(e) {
+		            if (!isResizing) return;
+		            const currentX = e.clientX;
+		            const diff = currentX - startX;
+		            const newWidth = startWidth + diff;
+		            
+		            const containerWidth = mainContent.offsetWidth;
+		            const minLeftWidth = 250;
+		            const minRightWidth = 400;
+		            const maxLeftWidth = containerWidth - minRightWidth;
+		            
+		            if (newWidth >= minLeftWidth && newWidth <= maxLeftWidth) {
+		                leftPane.style.flexBasis = newWidth + 'px';
+		            }
+		        }
+		        
+		        function handlePaneMouseUp() {
+		            isResizing = false;
+		            resizeHandle.classList.remove('resizing');
+		            document.body.classList.remove('resizing');
+		            document.removeEventListener('mousemove', handlePaneMouseMove);
+		            document.removeEventListener('mouseup', handlePaneMouseUp);
+		            
+		            // Re-render Gantt chart after resize to potentially trigger fit
+		            setTimeout(renderGantt, 100);
+		        }
+		        
+		        document.addEventListener('mousemove', handlePaneMouseMove);
+		        document.addEventListener('mouseup', handlePaneMouseUp);
+		    });
+		    
+		    // Touch support for mobile
+		    resizeHandle.addEventListener('touchstart', function (e) {
+		        e.preventDefault();
+		        const touch = e.touches[0];
+		        const startX = touch.clientX;
+		        const startWidth = leftPane.offsetWidth;
+		        
+		        function handleTouchMove(e) {
+		            const touch = e.touches[0];
+		            const currentX = touch.clientX;
+		            const diff = currentX - startX;
+		            const newWidth = startWidth + diff;
+		            
+		            const containerWidth = mainContent.offsetWidth;
+		            const minLeftWidth = 250;
+		            const minRightWidth = 400;
+		            const maxLeftWidth = containerWidth - minRightWidth;
+		            
+		            if (newWidth >= minLeftWidth && newWidth <= maxLeftWidth) {
+		                leftPane.style.flexBasis = newWidth + 'px';
+		            }
+		        }
+		        
+		        function handleTouchEnd() {
+		            document.removeEventListener('touchmove', handleTouchMove);
+		            document.removeEventListener('touchend', handleTouchEnd);
+		        }
+		        
+		        document.addEventListener('touchmove', handleTouchMove);
+		        document.addEventListener('touchend', handleTouchEnd);
+		    });
+		}
+		
 		// Column resize functionality
 		function initializeColumnResize() {
-			const table = document.getElementById('tasksTable');
-			const headers = table.querySelectorAll('th');
-			
-			headers.forEach((header, index) => {
-				// Skip the last column (no resize handle needed)
-				if (index === headers.length - 1) return;
-				
-				// Create resize handle
-				const resizeHandle = document.createElement('div');
-				resizeHandle.style.cssText = `
-					position: absolute;
-					right: 0;
-					top: 0;
-					bottom: 0;
-					width: 8px;
-					cursor: col-resize;
-					background: transparent;
-					z-index: 10;
-				`;
-				
-				// Add hover effect
-				resizeHandle.addEventListener('mouseenter', () => {
-					resizeHandle.style.background = 'rgba(102, 126, 234, 0.2)';
-				});
-				
-				resizeHandle.addEventListener('mouseleave', () => {
-					resizeHandle.style.background = 'transparent';
-				});
-				
-				header.style.position = 'relative';
-				header.appendChild(resizeHandle);
-				
-				let isResizing = false;
-				let startX = 0;
-				let startWidthLeft = 0;
-				let startWidthRight = 0;
-				
-				resizeHandle.addEventListener('mousedown', function(e) {
-					e.preventDefault();
-					e.stopPropagation();
-					
-					isResizing = true;
-					startX = e.pageX;
-					
-					const currentHeader = headers[index];
-					const nextHeader = headers[index + 1];
-					
-					startWidthLeft = currentHeader.offsetWidth;
-					startWidthRight = nextHeader.offsetWidth;
-					
-					document.body.style.cursor = 'col-resize';
-					document.body.style.userSelect = 'none';
-					
-					// Add global mouse listeners
-					document.addEventListener('mousemove', handleMouseMove);
-					document.addEventListener('mouseup', handleMouseUp);
-				});
-				
-				function handleMouseMove(e) {
-					if (!isResizing) return;
-					
-					const deltaX = e.pageX - startX;
-					const minWidth = 80;
-					
-					const newLeftWidth = startWidthLeft + deltaX;
-					const newRightWidth = startWidthRight - deltaX;
-					
-					// Ensure both columns maintain minimum width
-					if (newLeftWidth >= minWidth && newRightWidth >= minWidth) {
-						const currentHeader = headers[index];
-						const nextHeader = headers[index + 1];
-						
-						// Update header widths
-						currentHeader.style.width = newLeftWidth + 'px';
-						nextHeader.style.width = newRightWidth + 'px';
-						
-						// Update all corresponding cells in the tbody
-						const rows = table.querySelectorAll('tbody tr');
-						rows.forEach(row => {
-							if (row.children[index]) {
-								row.children[index].style.width = newLeftWidth + 'px';
-							}
-							if (row.children[index + 1]) {
-								row.children[index + 1].style.width = newRightWidth + 'px';
-							}
-						});
-					}
-				}
-				
-				function handleMouseUp() {
-					isResizing = false;
-					document.body.style.cursor = '';
-					document.body.style.userSelect = '';
-					
-					// Remove global listeners
-					document.removeEventListener('mousemove', handleMouseMove);
-					document.removeEventListener('mouseup', handleMouseUp);
-				}
-			});
+		    const table = document.getElementById('tasksTable');
+		    const headers = table.querySelectorAll('th');
+		    
+		    headers.forEach((header, index) => {
+		        // Skip the last column (no resize handle needed)
+		        if (index === headers.length - 1) return;
+		        
+		        // Create resize handle
+		        const resizeHandle = document.createElement('div');
+		        resizeHandle.style.cssText = `
+		            position: absolute;
+		            right: 0;
+		            top: 0;
+		            bottom: 0;
+		            width: 8px;
+		            cursor: col-resize;
+		            background: transparent;
+		            z-index: 10;
+		        `;
+		        
+		        // Add hover effect
+		        resizeHandle.addEventListener('mouseenter', () => {
+		            resizeHandle.style.background = 'rgba(102, 126, 234, 0.2)';
+		        });
+		        
+		        resizeHandle.addEventListener('mouseleave', () => {
+		            resizeHandle.style.background = 'transparent';
+		        });
+		        
+		        header.style.position = 'relative';
+		        header.appendChild(resizeHandle);
+		        
+		        let isResizing = false;
+		        let startX = 0;
+		        let startWidthLeft = 0;
+		        let startWidthRight = 0;
+		        
+		        resizeHandle.addEventListener('mousedown', function (e) {
+		            e.preventDefault();
+		            e.stopPropagation();
+		            
+		            isResizing = true;
+		            startX = e.pageX;
+		            
+		            const currentHeader = headers[index];
+		            const nextHeader = headers[index + 1];
+		            
+		            startWidthLeft = currentHeader.offsetWidth;
+		            startWidthRight = nextHeader.offsetWidth;
+		            
+		            document.body.style.cursor = 'col-resize';
+		            document.body.style.userSelect = 'none';
+		            
+		            // Add global mouse listeners
+		            document.addEventListener('mousemove', handleColumnMouseMove);
+		            document.addEventListener('mouseup', handleColumnMouseUp);
+		        });
+		        
+		        function handleColumnMouseMove(e) {
+		            if (!isResizing) return;
+		            
+		            const deltaX = e.pageX - startX;
+		            const minWidth = 80;
+		            
+		            const newLeftWidth = startWidthLeft + deltaX;
+		            const newRightWidth = startWidthRight - deltaX;
+		            
+		            // Ensure both columns maintain minimum width
+		            if (newLeftWidth >= minWidth && newRightWidth >= minWidth) {
+		                const currentHeader = headers[index];
+		                const nextHeader = headers[index + 1];
+		                
+		                // Update header widths
+		                currentHeader.style.width = newLeftWidth + 'px';
+		                nextHeader.style.width = newRightWidth + 'px';
+		                
+		                // Update all corresponding cells in the tbody
+		                const rows = table.querySelectorAll('tbody tr');
+		                rows.forEach(row => {
+		                    if (row.children[index]) {
+		                        row.children[index].style.width = newLeftWidth + 'px';
+		                    }
+		                    if (row.children[index + 1]) {
+		                        row.children[index + 1].style.width = newRightWidth + 'px';
+		                    }
+		                });
+		            }
+		        }
+		        
+		        function handleColumnMouseUp() {
+		            isResizing = false;
+		            document.body.style.cursor = '';
+		            document.body.style.userSelect = '';
+		            
+		            // Remove global listeners
+		            document.removeEventListener('mousemove', handleColumnMouseMove);
+		            document.removeEventListener('mouseup', handleColumnMouseUp);
+		        }
+		    });
 		}
     </script>
 </body>
