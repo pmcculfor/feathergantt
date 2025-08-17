@@ -1563,105 +1563,134 @@
         }
 
         function renderDependencyArrows() {
-            const svg = document.getElementById('dependencyArrows');
-            const existingArrows = svg.querySelectorAll('.arrow-line');
-            existingArrows.forEach(arrow => arrow.remove());
-            
-            const units = getTimelineUnits();
-            if (units.length === 0) return;
-            
-            const unitWidth = getActualUnitWidth();
-            const timelineStart = units[0].date;
-            const rowHeight = 40;
-            
-            tasks.forEach((task, taskIndex) => {
-                task.predecessors.forEach(pred => {
-                    const predTaskIndex = tasks.findIndex(t => t.id === pred.taskId);
-                    if (predTaskIndex === -1) return;
-                    
-                    const predTask = tasks[predTaskIndex];
-                    
-                    // Calculate positions
-                    const predStart = parseDate(predTask.startDate);
-                    const taskStart = parseDate(task.startDate);
-                    
-                    let predX, taskX;
-                    
-                    if (currentTimeUnit === 'day') {
-                        const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
-                        const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
-                        
-                        if (pred.type === 'FS') {
-                            predX = (predDays + predTask.duration) * unitWidth;
-                            taskX = taskDays * unitWidth;
-                        } else if (pred.type === 'SS') {
-                            predX = predDays * unitWidth;
-                            taskX = taskDays * unitWidth;
-                        } else { // FF
-                            predX = (predDays + predTask.duration) * unitWidth;
-                            taskX = (taskDays + task.duration) * unitWidth;
-                        }
-                    } else if (currentTimeUnit === 'week') {
-                        const predWeeks = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24 * 7));
-                        const taskWeeks = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24 * 7));
-                        
-                        if (pred.type === 'FS') {
-                            predX = (predWeeks + predTask.duration / 7) * unitWidth;
-                            taskX = taskWeeks * unitWidth;
-                        } else if (pred.type === 'SS') {
-                            predX = predWeeks * unitWidth;
-                            taskX = taskWeeks * unitWidth;
-                        } else { // FF
-                            predX = (predWeeks + predTask.duration / 7) * unitWidth;
-                            taskX = (taskWeeks + task.duration / 7) * unitWidth;
-                        }
-                    } else { // month
-                        const predMonths = (predStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-                                          (predStart.getMonth() - timelineStart.getMonth()) +
-                                          (predStart.getDate() - timelineStart.getDate()) / 30;
-                        const taskMonths = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-                                          (taskStart.getMonth() - timelineStart.getMonth()) +
-                                          (taskStart.getDate() - timelineStart.getDate()) / 30;
-                        
-                        if (pred.type === 'FS') {
-                            predX = (predMonths + predTask.duration / 30) * unitWidth;
-                            taskX = taskMonths * unitWidth;
-                        } else if (pred.type === 'SS') {
-                            predX = predMonths * unitWidth;
-                            taskX = taskMonths * unitWidth;
-                        } else { // FF
-                            predX = (predMonths + predTask.duration / 30) * unitWidth;
-                            taskX = (taskMonths + task.duration / 30) * unitWidth;
-                        }
-                    }
-                    
-                    const predY = predTaskIndex * rowHeight + rowHeight / 2;
-                    const taskY = taskIndex * rowHeight + rowHeight / 2;
-                    
-                    // Create arrow path
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.classList.add('arrow-line');
-                    
-                    let pathData;
-                    if (Math.abs(predY - taskY) < rowHeight / 2) {
-                        // Horizontal arrow
-                        pathData = `M ${predX} ${predY} L ${taskX - 10} ${taskY}`;
-                    } else {
-                        // L-shaped arrow
-                        const midX = predX + (taskX - predX) / 2;
-                        pathData = `M ${predX} ${predY} L ${midX} ${predY} L ${midX} ${taskY} L ${taskX - 10} ${taskY}`;
-                    }
-                    
-                    path.setAttribute('d', pathData);
-                    path.setAttribute('stroke', '#667eea');
-                    path.setAttribute('stroke-width', '2');
-                    path.setAttribute('fill', 'none');
-                    path.setAttribute('marker-end', 'url(#arrowhead)');
-                    
-                    svg.appendChild(path);
-                });
-            });
-        }
+		    const svg = document.getElementById('dependencyArrows');
+		    const existingArrows = svg.querySelectorAll('.dependency-line');
+		    existingArrows.forEach(arrow => arrow.remove());
+		    
+		    const units = getTimelineUnits();
+		    if (units.length === 0) return;
+		    
+		    const unitWidth = getActualUnitWidth();
+		    const timelineStart = units[0].date;
+		    const rowHeight = 40;
+		    const barHeight = 24; // Height of task bars
+		    const barTop = (rowHeight - barHeight) / 2; // Top offset of bars within rows
+		    
+		    tasks.forEach((task, taskIndex) => {
+		        task.predecessors.forEach(pred => {
+		            const predTaskIndex = tasks.findIndex(t => t.id === pred.taskId);
+		            if (predTaskIndex === -1) return;
+		            
+		            const predTask = tasks[predTaskIndex];
+		            
+		            // Calculate task bar positions and widths
+		            const predStart = parseDate(predTask.startDate);
+		            const taskStart = parseDate(task.startDate);
+		            
+		            let predStartX, predEndX, taskStartX, taskEndX;
+		            
+		            // Calculate X positions based on time unit
+		            if (currentTimeUnit === 'day') {
+		                const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
+		                const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
+		                
+		                predStartX = predDays * unitWidth;
+		                predEndX = (predDays + predTask.duration) * unitWidth;
+		                taskStartX = taskDays * unitWidth;
+		                taskEndX = (taskDays + task.duration) * unitWidth;
+		            } else if (currentTimeUnit === 'week') {
+		                const predDays = Math.floor((predStart - timelineStart) / (1000 * 60 * 60 * 24));
+		                const taskDays = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
+		                
+		                predStartX = (predDays / 7) * unitWidth;
+		                predEndX = ((predDays + predTask.duration) / 7) * unitWidth;
+		                taskStartX = (taskDays / 7) * unitWidth;
+		                taskEndX = ((taskDays + task.duration) / 7) * unitWidth;
+		            } else { // month
+		                const predMonths = (predStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+		                                  (predStart.getMonth() - timelineStart.getMonth()) +
+		                                  (predStart.getDate() - timelineStart.getDate()) / 30;
+		                const taskMonths = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
+		                                  (taskStart.getMonth() - timelineStart.getMonth()) +
+		                                  (taskStart.getDate() - timelineStart.getDate()) / 30;
+		                
+		                predStartX = predMonths * unitWidth;
+		                predEndX = (predMonths + predTask.duration / 30) * unitWidth;
+		                taskStartX = taskMonths * unitWidth;
+		                taskEndX = (taskMonths + task.duration / 30) * unitWidth;
+		            }
+		            
+		            // Ensure minimum bar width for display
+		            const minBarWidth = 60;
+		            if (predEndX - predStartX < minBarWidth) {
+		                predEndX = predStartX + minBarWidth;
+		            }
+		            if (taskEndX - taskStartX < minBarWidth) {
+		                taskEndX = taskStartX + minBarWidth;
+		            }
+		            
+		            // Calculate Y positions (center of task bars)
+		            const predY = predTaskIndex * rowHeight + rowHeight / 2;
+		            const taskY = taskIndex * rowHeight + rowHeight / 2;
+		            
+		            // Determine connection points based on relationship type
+		            let startX, endX;
+		            
+		            switch (pred.type) {
+		                case 'FS': // Finish-Start
+		                    startX = predStartX + (predEndX - predStartX) * 0.9; // 90% to the right of predecessor
+		                    endX = taskStartX + (taskEndX - taskStartX) * 0.1; // 10% from left of dependent
+		                    break;
+		                case 'SS': // Start-Start
+		                    startX = predStartX + (predEndX - predStartX) * 0.1; // 10% from left of predecessor
+		                    endX = taskStartX + (taskEndX - taskStartX) * 0.1; // 10% from left of dependent
+		                    break;
+		                case 'FF': // Finish-Finish
+		                    startX = predStartX + (predEndX - predStartX) * 0.9; // 90% to the right of predecessor
+		                    endX = taskStartX + (taskEndX - taskStartX) * 0.9; // 90% to the right of dependent
+		                    break;
+		                default:
+		                    startX = predEndX; // Default to finish-start
+		                    endX = taskStartX;
+		            }
+		            
+		            // Create the dependency line path
+		            let pathData;
+		            
+		            if (predTaskIndex === taskIndex) {
+		                // Same task - shouldn't happen but handle gracefully
+		                return;
+		            }
+		            
+		            // Determine intermediate points for L-shaped routing
+		            const verticalOffset = 8; // Distance from task bar for vertical routing
+		            
+		            if (predTaskIndex < taskIndex) {
+		                // Predecessor is above dependent
+		                const intermediateY = predY + verticalOffset;
+		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
+		            } else {
+		                // Predecessor is below dependent
+		                const intermediateY = predY - verticalOffset;
+		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
+		            }
+		            
+		            // Create the path element
+		            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		            path.classList.add('dependency-line');
+		            path.setAttribute('d', pathData);
+		            path.setAttribute('stroke', '#667eea');
+		            path.setAttribute('stroke-width', '2');
+		            path.setAttribute('fill', 'none');
+		            path.setAttribute('opacity', '0.8');
+		            
+		            // Add subtle styling
+		            path.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))';
+		            
+		            svg.appendChild(path);
+		        });
+		    });
+		}
 
         // Initialize the app with enhanced resize functionality
         document.addEventListener('DOMContentLoaded', function() {
