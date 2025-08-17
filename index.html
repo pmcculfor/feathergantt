@@ -787,21 +787,6 @@
     </div>
 
     <script>
-        // Firebase Configuration
-		const firebaseConfig = {
-			apiKey: "AIzaSyC7qYz5QE50PBqewCaG6PD8JpDkJRPITOY",
-			authDomain: "simpleganttchart.firebaseapp.com",
-			projectId: "simpleganttchart",
-			storageBucket: "simpleganttchart.firebasestorage.app",
-			messagingSenderId: "524311600724",
-			appId: "1:524311600724:web:c994eb1e0ec83ead9757c1",
-			measurementId: "G-BF20K0XY7Q"
-		};
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
         // App state
         let tasks = [];
         let nextTaskId = 1;
@@ -817,8 +802,30 @@
         let currentTimeUnit = 'week'; // 'day', 'week', or 'month'
         const MIN_COLUMN_WIDTH = 60; // Minimum width before switching time units
 		const ZOOM_FACTOR = 1.25; // Each zoom step shows 25% more/less content
+		// Gantt chart layout constants - keep these in sync with CSS
+		const GANTT_CONFIG = {
+		    ROW_HEIGHT: 40,        // .gantt-row height
+		    TASK_BAR_HEIGHT: 24,   // .task-bar height  
+		    TASK_BAR_TOP: 8,       // .task-bar top offset
+		    MIN_BAR_WIDTH: 60,     // Minimum task bar width
+		}
 
-        // Generate random ID for new gantt charts
+        // Firebase Configuration
+		const firebaseConfig = {
+			apiKey: "AIzaSyC7qYz5QE50PBqewCaG6PD8JpDkJRPITOY",
+			authDomain: "simpleganttchart.firebaseapp.com",
+			projectId: "simpleganttchart",
+			storageBucket: "simpleganttchart.firebasestorage.app",
+			messagingSenderId: "524311600724",
+			appId: "1:524311600724:web:c994eb1e0ec83ead9757c1",
+			measurementId: "G-BF20K0XY7Q"
+		};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+		
+		// Generate random ID for new gantt charts
         function generateGanttId() {
             return Math.random().toString(36).substr(2, 16);
         }
@@ -1572,8 +1579,8 @@
 		    
 		    const unitWidth = getActualUnitWidth();
 		    const timelineStart = units[0].date;
-		    const rowHeight = 40;
-		    const barHeight = 24; // Height of task bars
+		    const rowHeight = GANTT_CONFIG.ROW_HEIGHT;
+		    const barHeight = GANTT_CONFIG.TASK_BAR_HEIGHT; // Height of task bars
 		    const barTop = (rowHeight - barHeight) / 2; // Top offset of bars within rows
 		    
 		    tasks.forEach((task, taskIndex) => {
@@ -1621,7 +1628,7 @@
 		            }
 		            
 		            // Ensure minimum bar width for display
-		            const minBarWidth = 60;
+		            const minBarWidth = GANTT_CONFIG.MIN_BAR_WIDTH;
 		            if (predEndX - predStartX < minBarWidth) {
 		                predEndX = predStartX + minBarWidth;
 		            }
