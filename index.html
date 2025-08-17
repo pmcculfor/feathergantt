@@ -656,7 +656,7 @@
             user-select: none !important;
         }
 
-        @media (max-width: 1200px) {
+        @media (max-width: 900px) {
             .main-content {
                 flex-direction: column;
                 height: auto;
@@ -811,13 +811,6 @@
         let currentTimeUnit = 'week'; // 'day', 'week', or 'month'
         const MIN_COLUMN_WIDTH = 60; // Minimum width before switching time units
 		const ZOOM_FACTOR = 1.25; // Each zoom step shows 25% more/less content
-		// Gantt chart layout constants - keep these in sync with CSS
-		const GANTT_CONFIG = {
-		    ROW_HEIGHT: 40,        // .gantt-row height
-		    TASK_BAR_HEIGHT: 24,   // .task-bar height  
-		    TASK_BAR_TOP: 8,       // .task-bar top offset
-		    MIN_BAR_WIDTH: 60,     // Minimum task bar width
-		}
 
         // Firebase Configuration
 		const firebaseConfig = {
