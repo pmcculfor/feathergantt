@@ -848,14 +848,19 @@
                     // Update URL without page reload
                     const newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + currentGanttId;
                     window.history.pushState({path: newUrl}, '', newUrl);
-                    
+                    currentShareableUrl = newUrl;
+                }
+
+                // Get current URL for sharing
+                if (!currentShareableUrl) {
+                    currentShareableUrl = window.location.href;
                 }
 
                 updateSaveStatus('saved', 'Saved ✓');
                 hasUnsavedChanges = false;
                 
-                // Update button text after first save
-                document.getElementById('saveShareBtn').innerHTML = '<span>💾</span> Save';
+                // Transform button to copy mode
+                transformButtonToCopyMode();
                 
             } catch (error) {
                 console.error('Error saving gantt chart:', error);
@@ -882,11 +887,14 @@
                     currentGanttId = ganttId;
                     hasUnsavedChanges = false;
                     
+                    // Set current URL for sharing
+                    currentShareableUrl = window.location.href;
+                    
                     renderTasks();
                     renderGantt();
                     
-                    // Update button text
-                    document.getElementById('saveShareBtn').innerHTML = '<span>💾</span> Save';
+                    // Transform button to copy mode since chart exists
+                    transformButtonToCopyMode();
                     
                     updateSaveStatus('saved', 'Loaded ✓');
                 } else {
@@ -913,7 +921,6 @@
             } else {
                 // Button is in save mode, save the chart
                 await saveGanttChart();
-				transformButtonToCopyMode();
             }
         }
 		
