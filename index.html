@@ -1383,9 +1383,9 @@
 			const minDate = new Date(Math.min(...allDates));
 			const maxDate = new Date(Math.max(...allDates));
 			const startDate = addDays(minDate, -1); // Just 1 day before
-			const endDate = addDays(maxDate, 0); // Just 1 day after, but since dates dont have time, it already shows the next day, so add 0
+			const endDate = addDays(maxDate, 1); // Just 1 day after
 			
-			const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+			const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1; // If end date is same, total days is 1. 
 			
 			// Try different time units to find the best fit
 			let bestZoom = 1;
