@@ -1383,7 +1383,7 @@
 			const minDate = new Date(Math.min(...allDates));
 			const maxDate = new Date(Math.max(...allDates));
 			const startDate = addDays(minDate, -1); // Just 1 day before
-			const endDate = addDays(maxDate, 0); // Just 1 day after, but since dates dont have time, it already shows the next day, so add 0
+			const endDate = addDays(maxDate, -1); // Just 1 day after, but since dates dont have time, it already shows the next day, so add 0
 			
 			const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 			
