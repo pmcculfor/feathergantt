@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" href="feather-gantt-icon.png" type="image/png">
     <title>FeatherGantt.com</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -54,6 +55,12 @@
         .header-content {
             flex: 1;
         }
+
+		.header-content img {
+			float: left;
+			width: 100px;
+			height: 100px;
+		}
 
         .header-actions {
             display: flex;
@@ -687,6 +694,7 @@
         <div class="header">
             <div class="header-top">
                 <div class="header-content">
+					<img src="images/feather-gantt.png" alt="Feather Gantt Logo" />
                     <h1>FeatherGantt.com</h1>
                     <p>A lightweight, fully featured Gantt app - that's actually free!</p>
                 </div>
