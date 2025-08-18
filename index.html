@@ -501,14 +501,16 @@
             background: #feb2b2;
         }
 
-        .gantt-container {
-			flex: 1;
-            position: relative;
-            overflow: auto;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            background: white;
-        }
+		.gantt-container {
+		    display: flex;       /* make it a flex container */
+		    flex-direction: column; /* stack children vertically */
+		    flex: 1;
+		    position: relative;
+		    overflow: auto;
+		    border: 1px solid #e2e8f0;
+		    border-radius: 12px;
+		    background: white;
+		}
 
         .gantt-header {
             display: flex;
@@ -563,7 +565,7 @@
         }
 
         .gantt-timeline {
-            display: flex;
+            flex: 0 0 auto;
             background: #f8fafc;
             border-bottom: 2px solid #e2e8f0;
             position: sticky;
@@ -581,8 +583,10 @@
         }
 
         .gantt-content {
-			min-height: 400px;
+			flex: 1 1 auto;
+			min-height: 0;
             position: relative;
+			overflow: auto;
         }
 
         .gantt-row {
