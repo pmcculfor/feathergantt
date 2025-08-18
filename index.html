@@ -1369,7 +1369,7 @@
 
 		function fitToWidth() {
 			const ganttContainer = document.getElementById('ganttContainer');
-			const containerWidth = ganttContainer.clientWidth - 60; // Account for padding/scrollbar
+			const containerWidth = ganttContainer.clientWidth; // remove this:  - 60; // Account for padding/scrollbar
 			
 			if (tasks.length === 0) return;
 			
