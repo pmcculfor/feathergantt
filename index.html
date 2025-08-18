@@ -909,7 +909,7 @@
                     currentShareableUrl = window.location.href;
                     
                     renderTasks();
-                    renderGantt();
+                    fitToWidth();
                     
                     // Transform button to copy mode since chart exists
                     transformButtonToCopyMode();
@@ -1046,7 +1046,7 @@
             const sampleTasks = [
                 {
                     id: nextTaskId++,
-                    name: 'Your Task Name Here',
+                    name: 'Task 1',
                     startDate: formatDate(today),
                     duration: 7,
                     predecessors: []
@@ -1055,7 +1055,7 @@
             
             tasks = sampleTasks;
             renderTasks();
-            renderGantt();
+            fitToWidth();
         }
 
         function formatDate(date) {
