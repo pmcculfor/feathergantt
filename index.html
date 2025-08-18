@@ -1460,7 +1460,7 @@
 		    
 		    const allDates = tasks.flatMap(task => {
 		        const start = parseDate(task.startDate);
-		        const end = addDays(start, task.duration);
+		        const end = addDays(start, task.duration - 1); // Duration - 1. If duration is 1 day, end date is same as start date
 		        return [start, end];
 		    });
 		    
