@@ -501,16 +501,14 @@
             background: #feb2b2;
         }
 
-		.gantt-container {
-		    display: flex;       /* make it a flex container */
-		    flex-direction: column; /* stack children vertically */
-		    flex: 1;
-		    position: relative;
-		    overflow: auto;
-		    border: 1px solid #e2e8f0;
-		    border-radius: 12px;
-		    background: white;
-		}
+        .gantt-container {
+			flex: 1;
+            position: relative;
+            overflow: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: white;
+        }
 
         .gantt-header {
             display: flex;
@@ -583,10 +581,8 @@
         }
 
         .gantt-content {
-			flex: 1 1 auto;
-			min-height: 0;
+			min-height: 400px;
             position: relative;
-			overflow: auto;
         }
 
         .gantt-row {
