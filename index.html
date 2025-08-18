@@ -1478,7 +1478,7 @@
 		        endDate = addDays(maxDate, 7);
 		    } else { // month
 		        startDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, minDate.getDate());
-		        endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 1); // remove: maxDate.getDate()); make it the first of the next month because the date may be more than the next month's number of days. 
+		        endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0); // Day before first day of 2 months out gives last day of next month. 
 		    }
 		    
 		    const units = [];
