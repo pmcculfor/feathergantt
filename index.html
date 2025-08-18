@@ -1091,6 +1091,7 @@
 			const lastRow = tasksTable.rows[tasksTable.rows.length - 1];
 			const taskNameInput = lastRow.cells[0].querySelector('input.task-input');
 			taskNameInput.focus();
+			taskNameInput.select();
         }
 
         function deleteTask(taskId) {
