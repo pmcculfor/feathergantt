@@ -1376,7 +1376,7 @@
 			// Calculate the total timeline span needed with minimal padding
 			const allDates = tasks.flatMap(task => {
 				const start = parseDate(task.startDate);
-				const end = addDays(start, task.duration);
+				const end = addDays(start, task.duration - 1); // Subtract 1 from duration. If task is 1 day long, end day is same as start day.
 				return [start, end];
 			});
 			
