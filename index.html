@@ -1088,7 +1088,7 @@
             scheduleAutoSave();
 
 			const tasksTable = document.getElementById('tasksTable');
-			const lastRow = rows[rows.length - 1];
+			const lastRow = tasksTable.rows[rows.length - 1];
 			const taskNameCell = tasksTable.rows[lastRow].cells[0];
 			taskNameCell.focus();
         }
