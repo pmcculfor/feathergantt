@@ -847,9 +847,9 @@
 		let currentShareableUrl = null;
         
         // Zoom configuration
-        let currentZoomLevel = 100; // Percentage
-        let currentTimeUnit = 'week'; // 'day', 'week', or 'month'
-        const MIN_COLUMN_WIDTH = 60; // Minimum width before switching time units
+        let zoomFactor = 10; // Pixels per day - single source of truth for zoom level
+        let timelineStartDate = new Date(); // The date at pixel position 0
+        const MIN_COLUMN_WIDTH = 60; // Minimum column width for timeline header units
 		const ZOOM_FACTOR = 1.25; // Each zoom step shows 25% more/less content
 
         // Firebase Configuration
@@ -940,7 +940,7 @@
                     currentShareableUrl = window.location.href;
                     
                     renderTasks();
-                    fitToWidth();
+                    renderGantt();
                     
                     // Transform button to copy mode since chart exists
                     transformButtonToCopyMode();
@@ -1384,271 +1384,7 @@
             renderPredecessorsList();
         }
 
-		// Zoom functions
-		function zoomIn() {
-			// Zoom in means showing less content (higher zoom level)
-			currentZoomLevel *= ZOOM_FACTOR;
-			renderGantt();
-		}
-
-		function zoomOut() {
-			// Zoom out means showing more content (lower zoom level)
-			currentZoomLevel = Math.max(1, currentZoomLevel / ZOOM_FACTOR);
-			renderGantt();
-		}
-
-		function fitToWidth() {
-			const ganttContainer = document.getElementById('ganttContainer');
-			const containerWidth = ganttContainer.clientWidth; // remove this:  - 60; // Account for padding/scrollbar
-			
-			if (tasks.length === 0) return;
-			
-			// Calculate the total timeline span needed with minimal padding
-			const allDates = tasks.flatMap(task => {
-				const start = parseDate(task.startDate);
-				const end = addDays(start, task.duration - 1); // Subtract 1 from duration. If task is 1 day long, end day is same as start day.
-				return [start, end];
-			});
-			
-			const minDate = new Date(Math.min(...allDates));
-			const maxDate = new Date(Math.max(...allDates));
-			const startDate = addDays(minDate, -1); // Just 1 day before
-			const endDate = addDays(maxDate, 1); // Just 1 day after
-			
-			const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1; // If end date is same, total days is 1. 
-			
-			// Try different time units to find the best fit
-			let bestZoom = 1;
-			let bestFit = false;
-			
-			// Try days first
-			const dayWidth = containerWidth / totalDays;
-			if (dayWidth >= MIN_COLUMN_WIDTH) {
-				bestZoom = (dayWidth / getBaseUnitWidth()) * 100;
-				bestFit = true;
-			}
-			
-			// If days don't fit well, try weeks
-			if (!bestFit) {
-				const totalWeeks = Math.ceil(totalDays / 7);
-				const weekWidth = containerWidth / totalWeeks;
-				if (weekWidth >= MIN_COLUMN_WIDTH) {
-					// For weeks, we need to account for the 7-day multiplier in the rendering
-					bestZoom = (weekWidth / (getBaseUnitWidth() * 7)) * 100;
-					bestFit = true;
-				}
-			}
-			
-			// If weeks don't fit, use months
-			if (!bestFit) {
-				const totalMonths = Math.ceil(totalDays / 30);
-				const monthWidth = containerWidth / totalMonths;
-				// For months, we need to account for the 30-day multiplier in the rendering
-				bestZoom = (monthWidth / (getBaseUnitWidth() * 30)) * 100;
-			}
-			
-			currentZoomLevel = Math.max(1, bestZoom);
-			renderGantt();
-		}
-
-        function updateZoomDisplay() {
-            // Update button states - no limits now
-            document.getElementById('zoomInBtn').disabled = false;
-            document.getElementById('zoomOutBtn').disabled = currentZoomLevel <= 1;
-        }
-
-        function getBaseUnitWidth() {
-            return 120; // Base width for calculations
-        }
-
-        // Enhanced getActualUnitWidth that returns consistent state
-		function getGanttRenderingConfig() {
-		    const baseWidth = getBaseUnitWidth();
-		    const scaledWidth = (baseWidth * currentZoomLevel) / 100;
-		    
-		    let timeUnit, unitWidth;
-		    
-		    // Determine appropriate time unit based on scaled width
-		    if (scaledWidth >= MIN_COLUMN_WIDTH) {
-		        timeUnit = 'day';
-		        unitWidth = scaledWidth;
-		    } else if (scaledWidth * 7 >= MIN_COLUMN_WIDTH) {
-		        timeUnit = 'week';
-		        unitWidth = scaledWidth * 7;
-		    } else {
-		        timeUnit = 'month';
-		        unitWidth = scaledWidth * 30;
-		    }
-		    
-		    return { timeUnit, unitWidth };
-		}
-		
-		function getTimelineUnits(renderConfig) {
-		    if (tasks.length === 0) return [];
-		    
-		    const { timeUnit, unitWidth } = renderConfig;
-		    
-		    const allDates = tasks.flatMap(task => {
-		        const start = parseDate(task.startDate);
-		        const end = addDays(start, task.duration - 1); // Duration - 1. If duration is 1 day, end date is same as start date
-		        return [start, end];
-		    });
-		    
-		    const minDate = new Date(Math.min(...allDates));
-		    const maxDate = new Date(Math.max(...allDates));
-		    
-		    // Add minimal padding - just one unit before and after
-		    let startDate, endDate;
-		    
-		    if (timeUnit === 'day') {
-		        startDate = addDays(minDate, -1);
-		        endDate = addDays(maxDate, 1);
-		    } else if (timeUnit === 'week') {
-		        startDate = addDays(minDate, -7);
-		        endDate = addDays(maxDate, 7);
-		    } else { // month
-		        startDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, minDate.getDate());
-		        endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0); // Day before first day of 2 months out gives last day of next month. 
-		    }
-		    
-		    const units = [];
-		    const current = new Date(startDate);
-		    
-		    while (current <= endDate) {
-		        let label, next;
-		        
-		        if (timeUnit === 'day') {
-		            label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		            next = addDays(current, 1);
-		        } else if (timeUnit === 'week') {
-		            const weekStart = new Date(current);
-		            weekStart.setDate(current.getDate() - current.getDay());
-		            label = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-		            next = addDays(current, 7);
-		        } else { // month
-		            label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-		            next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-		        }
-		        
-		        units.push({
-		            date: new Date(current),
-		            label: label,
-		            width: unitWidth
-		        });
-		        
-		        current.setTime(next.getTime());
-		    }
-		    
-		    return units;
-		}
-		
-		// Centralized function to calculate task positions
-		function calculateTaskPosition(task, timelineStart, renderConfig) {
-		    const { timeUnit, unitWidth } = renderConfig;
-		    const taskStart = parseDate(task.startDate);
-		    const daysFromStart = Math.floor((taskStart - timelineStart) / (1000 * 60 * 60 * 24));
-		    
-		    let startPosition, barWidth;
-		    
-		    if (timeUnit === 'day') {
-		        startPosition = daysFromStart * unitWidth;
-		        barWidth = task.duration * unitWidth;
-		    } else if (timeUnit === 'week') {
-		        startPosition = (daysFromStart / 7) * unitWidth;
-		        barWidth = (task.duration / 7) * unitWidth;
-		    } else { // month
-		        // More accurate month calculation
-		        const monthsFromStart = (taskStart.getFullYear() - timelineStart.getFullYear()) * 12 + 
-		                               (taskStart.getMonth() - timelineStart.getMonth()) +
-		                               (taskStart.getDate() - timelineStart.getDate()) / 30;
-		        startPosition = monthsFromStart * unitWidth;
-		        barWidth = (task.duration / 30) * unitWidth;
-		    }
-		    
-		    // Ensure minimum bar width
-		    const minBarWidth = getConfigValue('--min-width', 60);
-		    barWidth = Math.max(barWidth, minBarWidth);
-		    
-		    return {
-		        startX: startPosition,
-		        endX: startPosition + barWidth,
-		        width: barWidth
-		    };
-		}
-		
-		function renderGantt() {
-		    const timeline = document.getElementById('ganttTimeline');
-		    const content = document.getElementById('ganttContent');
-		    
-		    // Clear existing content
-		    timeline.innerHTML = '';
-		    content.innerHTML = '<svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#667eea" /></marker></defs></svg>';
-		    
-		    // Get consistent rendering configuration
-		    const renderConfig = getGanttRenderingConfig();
-		    currentTimeUnit = renderConfig.timeUnit; // Update global state
-		    
-		    const units = getTimelineUnits(renderConfig);
-		    if (units.length === 0) return;
-		    
-		    const { unitWidth } = renderConfig;
-		    const timelineStart = units[0].date;
-		    
-		    // Render timeline header
-		    units.forEach(unit => {
-		        const unitElement = document.createElement('div');
-		        unitElement.className = 'timeline-unit';
-		        unitElement.style.width = unitWidth + 'px';
-		        unitElement.style.minWidth = unitWidth + 'px';
-		        unitElement.textContent = unit.label;
-		        timeline.appendChild(unitElement);
-		    });
-
-			// Set explicit width on timeline and content to ensure they stay synchronized
-			const totalTimelineWidth = units.reduce((sum, unit) => sum + unitWidth, 0);
-			timeline.style.width = totalTimelineWidth + 'px';
-			timeline.style.minWidth = totalTimelineWidth + 'px';
-			
-			// Ensure the content container matches the timeline width
-			const ganttContent = document.getElementById('ganttContent');
-			ganttContent.style.width = totalTimelineWidth + 'px';
-			ganttContent.style.minWidth = totalTimelineWidth + 'px';
-		    
-		    // Render task rows
-		    tasks.forEach((task, index) => {
-		        const row = document.createElement('div');
-		        row.className = 'gantt-row';
-		        row.style.height = '40px';
-		        
-		        // Create cells for timeline alignment
-		        units.forEach(unit => {
-		            const cell = document.createElement('div');
-		            cell.className = 'gantt-cell';
-		            cell.style.width = unitWidth + 'px';
-		            cell.style.minWidth = unitWidth + 'px';
-		            row.appendChild(cell);
-		        });
-		        
-		        // Calculate task bar position using centralized function
-		        const taskPosition = calculateTaskPosition(task, timelineStart, renderConfig);
-		        
-		        // Create task bar
-		        const taskBar = document.createElement('div');
-		        taskBar.className = `task-bar task-bar-${index % 8}`;
-		        taskBar.style.left = taskPosition.startX + 'px';
-		        taskBar.style.width = taskPosition.width + 'px';
-		        taskBar.textContent = task.name;
-		        taskBar.title = `${task.name}\nStart: ${task.startDate}\nDuration: ${task.duration} days`;
-		        
-		        row.appendChild(taskBar);
-		        content.appendChild(row);
-		    });
-		    
-		    // Render dependency arrows with the same render config
-		    renderDependencyArrows(renderConfig, timelineStart);
-		}
-
-		// Use CSS custom properties if available, otherwise fallback to constants
+		// Helper function to get CSS config values
 		function getConfigValue(cssVar, fallback) {
 			if (typeof getComputedStyle !== 'undefined') {
 				const value = getComputedStyle(document.documentElement).getPropertyValue(cssVar);
@@ -1657,85 +1393,350 @@
 			return fallback;
 		};
 		
-		function renderDependencyArrows(renderConfig, timelineStart) {
-		    const svg = document.getElementById('dependencyArrows');
-		    const existingArrows = svg.querySelectorAll('.dependency-line');
-		    existingArrows.forEach(arrow => arrow.remove());
-		    
-		    if (tasks.length === 0) return;
-		    
-		    const rowHeight = getConfigValue('--gantt-row-height', 40);
-		    const minBarWidth = getConfigValue('--min-bar-width', 60);
-		    const lineRoutingOffset = rowHeight / 2; // Line comes from middle of row
-		    
-		    tasks.forEach((task, taskIndex) => {
-		        task.predecessors.forEach(pred => {
-		            const predTaskIndex = tasks.findIndex(t => t.id === pred.taskId);
-		            if (predTaskIndex === -1) return;
-		            
-		            const predTask = tasks[predTaskIndex];
-		            
-		            // Use the same position calculation for both tasks
-		            const predPosition = calculateTaskPosition(predTask, timelineStart, renderConfig);
-		            const taskPosition = calculateTaskPosition(task, timelineStart, renderConfig);
-		            
-		            // Calculate Y positions (center of task bars)
-		            const predY = predTaskIndex * rowHeight + rowHeight / 2;
-		            const taskY = taskIndex * rowHeight + rowHeight / 2;
-		            
-		            // Determine connection points based on relationship type
-		            let startX, endX;
-		            
-		            switch (pred.type) {
-		                case 'FS': // Finish-Start
-		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.9;
-		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.1;
-		                    break;
-		                case 'SS': // Start-Start
-		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.1;
-		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.1;
-		                    break;
-		                case 'FF': // Finish-Finish
-		                    startX = predPosition.startX + (predPosition.endX - predPosition.startX) * 0.9;
-		                    endX = taskPosition.startX + (taskPosition.endX - taskPosition.startX) * 0.9;
-		                    break;
-		                default:
-		                    startX = predPosition.endX;
-		                    endX = taskPosition.startX;
-		            }
-		            
-		            // Create the dependency line path
-		            let pathData;
-		            
-		            if (predTaskIndex === taskIndex) {
-		                // Same task - shouldn't happen but handle gracefully
-		                return;
-		            }
-		            
-		            // Determine intermediate points for L-shaped routing
-		            if (predTaskIndex < taskIndex) {
-		                // Predecessor is above dependent
-		                const intermediateY = predY + lineRoutingOffset;
-		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
-		            } else {
-		                // Predecessor is below dependent
-		                const intermediateY = predY - lineRoutingOffset;
-		                pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
-		            }
-		            
-		            // Create the path element
-		            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		            path.classList.add('dependency-line');
-		            path.setAttribute('d', pathData);
-		            path.setAttribute('stroke', '#667eea');
-		            path.setAttribute('stroke-width', '2');
-		            path.setAttribute('fill', 'none');
-		            path.setAttribute('opacity', '0.8');
-		            path.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))';
-		            
-		            svg.appendChild(path);
-		        });
-		    });
+		// Core function: convert any date to pixel position
+		function dateToPixels(date) {
+			const daysFromStart = (date - timelineStartDate) / (1000 * 60 * 60 * 24);
+			return daysFromStart * zoomFactor;
+		}
+
+	// Get the date range covering all tasks, aligned to time unit boundaries
+	function getDateRange() {
+		if (tasks.length === 0) {
+			// Return a default range if no tasks
+			const today = new Date();
+			return {
+				startDate: addDays(today, -1),
+				endDate: addDays(today, 30),
+				timeUnit: 'day'
+			};
+		}
+
+		const allDates = tasks.flatMap(task => {
+			const start = parseDate(task.startDate);
+			const end = addDays(start, task.duration - 1);
+			return [start, end];
+		});
+
+		const minDate = new Date(Math.min(...allDates));
+		const maxDate = new Date(Math.max(...allDates));
+		
+		// Determine what unit we should use
+		const timeUnit = determineTimeUnits(MIN_COLUMN_WIDTH, zoomFactor);
+		
+		let startDate = minDate;
+		let endDate = maxDate;
+		
+		// Align to unit boundaries
+		if (timeUnit === 'week') {
+			// Start at beginning of week (Sunday)
+			const dayOfWeek = startDate.getDay();
+			startDate = addDays(startDate, -dayOfWeek);
+			
+			// End at end of week (Saturday)
+			const endDayOfWeek = endDate.getDay();
+			endDate = addDays(endDate, 6 - endDayOfWeek);
+		} else if (timeUnit === 'month') {
+			// Start at beginning of month
+			startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+			
+			// End at end of month (last day of the month)
+			endDate = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+		}
+		
+		return {
+			startDate: startDate,
+			endDate: endDate,
+			timeUnit: timeUnit
+		};
+	}
+
+		// Determine what time unit to display in the header based on zoom level
+		function determineTimeUnits(minColumnWidth, zoomFactor) {
+			const pixelsPerDay = zoomFactor;
+			const pixelsPerWeek = pixelsPerDay * 7;
+			const pixelsPerMonth = pixelsPerDay * 30;
+
+			// Return the most detailed unit that has sufficient width
+			if (pixelsPerDay >= minColumnWidth) {
+				return 'day';
+			} else if (pixelsPerWeek >= minColumnWidth) {
+				return 'week';
+			} else {
+				return 'month';
+			}
+		}
+
+		// Render the timeline background (header + grid)
+		function renderGanttBackground(dateRange) {
+			const timeline = document.getElementById('ganttTimeline');
+			const content = document.getElementById('ganttContent');
+
+			// Clear existing content
+			timeline.innerHTML = '';
+			content.innerHTML = '<svg id="dependencyArrows" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#667eea" /></marker></defs></svg>';
+
+			const { startDate, endDate, timeUnit } = dateRange;
+
+			// Generate timeline units based on selected time unit
+			const units = [];
+			const current = new Date(startDate);
+			
+			while (current <= endDate) {
+				let label, nextDate;
+
+				if (timeUnit === 'day') {
+					label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+					nextDate = addDays(current, 1);
+				} else if (timeUnit === 'week') {
+					const weekStart = new Date(current);
+					weekStart.setDate(current.getDate() - current.getDay());
+					label = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+					nextDate = addDays(current, 7);
+				} else { // month
+					label = current.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+					nextDate = new Date(current.getFullYear(), current.getMonth() + 1, current.getDate());
+				}
+
+				// Use dateToPixels to get actual widths (handles variable-width months!)
+				const startX = dateToPixels(current);
+				const endX = dateToPixels(nextDate);
+				const width = endX - startX;
+
+				units.push({
+					date: new Date(current),
+					label: label,
+					width: width,
+					nextDate: nextDate
+				});
+
+				current.setTime(nextDate.getTime());
+			}
+
+			// Render timeline header
+			units.forEach(unit => {
+				const unitElement = document.createElement('div');
+				unitElement.className = 'timeline-unit';
+				unitElement.style.width = unit.width + 'px';
+				unitElement.style.minWidth = unit.width + 'px';
+				unitElement.textContent = unit.label;
+				timeline.appendChild(unitElement);
+			});
+
+			// Set explicit width on timeline and content
+			const totalTimelineWidth = dateToPixels(endDate + 1);
+			timeline.style.width = totalTimelineWidth + 'px';
+			timeline.style.minWidth = totalTimelineWidth + 'px';
+
+			const ganttContent = document.getElementById('ganttContent');
+			ganttContent.style.width = totalTimelineWidth + 'px';
+			ganttContent.style.minWidth = totalTimelineWidth + 'px';
+
+			// Create grid cells for task rows
+			tasks.forEach((task, index) => {
+				const row = document.createElement('div');
+				row.className = 'gantt-row';
+				row.style.height = '40px';
+
+				// Create cells for timeline alignment using actual unit widths
+				units.forEach(unit => {
+					const cell = document.createElement('div');
+					cell.className = 'gantt-cell';
+					cell.style.width = unit.width + 'px';
+					cell.style.minWidth = unit.width + 'px';
+					row.appendChild(cell);
+				});
+
+				content.appendChild(row);
+			});
+		}
+
+		// Render individual task bars
+		function renderGanttTasks() {
+			const content = document.getElementById('ganttContent');
+
+			tasks.forEach((task, index) => {
+				const row = content.children[index + 1]; // +1 because children[0] is the SVG
+				if (!row) return; // Row should exist from renderGanttBackground
+
+				// Calculate positions using dateToPixels
+				const startX = dateToPixels(parseDate(task.startDate));
+				const endDate = addDays(parseDate(task.startDate), task.duration);
+				const endX = dateToPixels(endDate);
+				const width = endX - startX;
+
+				// Create task bar
+				const taskBar = document.createElement('div');
+				taskBar.className = `task-bar task-bar-${index % 8}`;
+				taskBar.style.left = startX + 'px';
+				taskBar.style.width = width + 'px';
+				taskBar.textContent = task.name;
+				taskBar.title = `${task.name}\nStart: ${task.startDate}\nDuration: ${task.duration} days\nEnd: ${formatDate(endDate)}`;
+
+				row.appendChild(taskBar);
+			});
+		}
+
+		// Render dependency arrows
+		function renderDependencyArrows() {
+			const svg = document.getElementById('dependencyArrows');
+			const existingArrows = svg.querySelectorAll('.dependency-line');
+			existingArrows.forEach(arrow => arrow.remove());
+
+			if (tasks.length === 0) return;
+
+			const rowHeight = 40; // Get from CSS variable if needed
+			const lineRoutingOffset = rowHeight / 2;
+
+			tasks.forEach((task, taskIndex) => {
+				task.predecessors.forEach(pred => {
+					const predTaskIndex = tasks.findIndex(t => t.id === pred.taskId);
+					if (predTaskIndex === -1) return;
+
+					const predTask = tasks[predTaskIndex];
+					
+					// Calculate positions using dateToPixels
+					const predStartX = dateToPixels(parseDate(predTask.startDate));
+					const predEndDate = addDays(parseDate(predTask.startDate), predTask.duration);
+					const predEndX = dateToPixels(predEndDate);
+
+					const taskStartX = dateToPixels(parseDate(task.startDate));
+					const taskEndDate = addDays(parseDate(task.startDate), task.duration);
+					const taskEndX = dateToPixels(taskEndDate);
+
+					// Calculate Y positions
+					const predY = predTaskIndex * rowHeight + rowHeight / 2;
+					const taskY = taskIndex * rowHeight + rowHeight / 2;
+
+					// Determine connection points based on relationship type
+					let startX, endX;
+					
+					switch (pred.type) {
+						case 'FS': // Finish-Start
+							startX = predStartX + (predEndX - predStartX) * 0.9;
+							endX = taskStartX + (taskEndX - taskStartX) * 0.1;
+							break;
+						case 'SS': // Start-Start
+							startX = predStartX + (predEndX - predStartX) * 0.1;
+							endX = taskStartX + (taskEndX - taskStartX) * 0.1;
+							break;
+						case 'FF': // Finish-Finish
+							startX = predStartX + (predEndX - predStartX) * 0.9;
+							endX = taskStartX + (taskEndX - taskStartX) * 0.9;
+							break;
+						default:
+							startX = predEndX;
+							endX = taskStartX;
+					}
+
+					// Create path
+					let pathData;
+					if (predTaskIndex === taskIndex) {
+						return; // Same task
+					}
+
+					if (predTaskIndex < taskIndex) {
+						const intermediateY = predY + lineRoutingOffset;
+						pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
+					} else {
+						const intermediateY = predY - lineRoutingOffset;
+						pathData = `M ${startX} ${predY} L ${startX} ${intermediateY} L ${endX} ${intermediateY} L ${endX} ${taskY}`;
+					}
+
+					const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+					path.classList.add('dependency-line');
+					path.setAttribute('d', pathData);
+					path.setAttribute('stroke', '#667eea');
+					path.setAttribute('stroke-width', '2');
+					path.setAttribute('fill', 'none');
+					path.setAttribute('opacity', '0.8');
+					path.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))';
+					
+					svg.appendChild(path);
+				});
+			});
+		}
+
+	// Main rendering orchestration
+	function renderGantt() {
+		const dateRange = getDateRange();
+		timelineStartDate = dateRange.startDate;
+
+		renderGanttBackground(dateRange);
+		renderGanttTasks();
+		renderDependencyArrows();
+	}
+
+	// Zoom functions
+	function zoomIn() {
+		zoomFactor *= ZOOM_FACTOR;
+		renderGantt();
+	}
+
+	function zoomOut() {
+		zoomFactor = Math.max(0.1, zoomFactor / ZOOM_FACTOR);
+		renderGantt();
+	}
+
+		function fitToWidth() {
+            if (tasks.length === 0) {
+                return;
+            }
+            // Get the available width of the gantt container
+            const ganttContainer = document.getElementById('ganttContainer');
+            const availableWidth = ganttContainer.clientWidth;
+
+            // Get initial date range (unaligned)
+            const allDates = tasks.flatMap(task => {
+                const start = parseDate(task.startDate);
+                const end = addDays(start, task.duration - 1);
+                return [start, end];
+            });
+
+            let currentStartDate = new Date(Math.min(...allDates));
+            let currentEndDate = new Date(Math.max(...allDates));
+            let previousStartDate = null;
+            let previousEndDate = null;
+
+            // Iteratively calculate zoomFactor until dates stabilize
+            let iterations = 0;
+            const maxIterations = 10; // Prevent infinite loops
+
+            while (iterations < maxIterations) {
+                // Calculate days between current start and end
+                const totalDays = (currentEndDate - currentStartDate) / (1000 * 60 * 60 * 24) + 1;
+                
+                // Calculate required zoom factor to fit this range
+                const calculatedZoomFactor = availableWidth / totalDays;
+                
+                // Set the zoom factor
+                zoomFactor = Math.max(0.1, calculatedZoomFactor);
+
+                // Now get the date range with this zoom factor (which may align to units)
+                const dateRange = getDateRange();
+
+                // Check if dates have stabilized
+                if (previousStartDate && previousEndDate &&
+                    dateRange.startDate.getTime() === previousStartDate.getTime() &&
+                    dateRange.endDate.getTime() === previousEndDate.getTime()) {
+                    // Dates are stable, we're done
+                    break;
+                }
+
+                // Update for next iteration
+                previousStartDate = dateRange.startDate;
+                previousEndDate = dateRange.endDate;
+                currentStartDate = new Date(dateRange.startDate);
+                currentEndDate = new Date(dateRange.endDate);
+
+                iterations++;
+            }
+
+            renderGantt();
+		}
+
+		function updateZoomDisplay() {
+			document.getElementById('zoomInBtn').disabled = false;
+			document.getElementById('zoomOutBtn').disabled = false;
 		}
 
 		// Initialize the app with enhanced resize functionality
