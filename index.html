@@ -47,9 +47,9 @@
         }
 
 		:root {
-		    --gantt-row-height: 40px;
-		    --gantt-bar-height: 24px;
-		    --gantt-bar-top: 8px;
+		    --gantt-row-height: 50px;
+		    --gantt-bar-height: 30px;
+		    --gantt-bar-top: 10px;
 		    --min-bar-width: 60px;
 		}
 
@@ -298,6 +298,10 @@
 			font-size: 13px;
 			position: relative;
 		}
+        
+        .tasks-table tr {
+            height: 50px;
+        }
 
         .tasks-table td {
             padding: 8px;
@@ -601,6 +605,7 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            padding: 4px;
         }
 
         .timeline-unit {
@@ -630,7 +635,6 @@
         }
 
         .gantt-cell {
-            height: 40px;
             border-right: 1px solid #f1f5f9;
             position: relative;
         }
@@ -639,7 +643,7 @@
             position: absolute;
             height: var(--gantt-bar-height);
     		top: var(--gantt-bar-top);
-            border-radius: 12px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             padding: 0 12px;
@@ -1535,7 +1539,6 @@
 			tasks.forEach((task, index) => {
 				const row = document.createElement('div');
 				row.className = 'gantt-row';
-				row.style.height = '40px';
 
 				// Create cells for timeline alignment using actual unit widths
 				units.forEach(unit => {
@@ -1584,7 +1587,7 @@
 
 			if (tasks.length === 0) return;
 
-			const rowHeight = 40; // Get from CSS variable if needed
+			const rowHeight = getConfigValue('--gantt-row-height', 50);
 			const lineRoutingOffset = rowHeight / 2;
 
 			tasks.forEach((task, taskIndex) => {
